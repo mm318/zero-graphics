@@ -342,7 +342,7 @@ pub const Application = struct {
                 \\
             ) catch unreachable;
 
-            break :blk list.toOwnedSlice() catch @panic("oom");
+            break :blk list.toOwnedSlice();
         });
 
         const build_options = std.build.Pkg{

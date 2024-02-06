@@ -25,7 +25,6 @@ pub const Event = struct {
 
     pub const Data = union(enum) {
         none,
-        
     };
 
     pub fn format(self: Event, comptime fmt: []const u8, options: std.fmt.FormatOptions, writer: anytype) !void {

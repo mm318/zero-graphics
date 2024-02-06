@@ -1,0 +1,67 @@
+# Apple Pie
+
+Apple pie is a HTTP Server implementation in [Zig](https://ziglang.org). The initial goal is to offer full support for http versions 1.0 and 1.1 with 2.0 and further planned at a later stage. With Apple Pie I'd like to offer a library that contains all features you'd expect from a server, while still remaining performant. Rather than hiding complexity, I want to expose its functionality so users can replace and/or expand upon to fit their needs.
+
+## Roadmap
+- HTTP 1.1 spec (fully) implemented
+
+## Features
+- Crossplatform support
+- Extensive routing (see the [router](examples/router.zig) example) built in
+- Allows for both async and blocking I/O using Zig's std event loop
+
+## Example
+A very basic implementation would be as follow:
+
+```zig
+const std = @import("std");
+const http = @import("apple_pie");
+
+// use evented mode for event loop support
+pub const io_mode = .evented;
+
+// optional root constant to define max stack buffer size per request
+pub const buffer_size: usize = 4096;
+// optional root constant to define max header size per request
+pub const request_buffer_size: usize = 4096;
+
+/// Context variable, accessible by all handlers, allowing to access data objects
+/// without requiring them to be global. Thread-safety must be handled by the user.
+const Context = struct {
+    data: []const u8,
+};
+
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    defer _ = gpa.deinit();
+	
+    const my_context: Context = .{ .data = "Hello, world!" };
+	
+    try http.listenAndServe(
+        gpa.allocator(),
+        try std.net.Address.parseIp("127.0.0.1", 8080),
+        my_context,
+        index,
+    );
+}
+
+fn index(ctx: Context, response: *http.Response, request: http.Request) !void {
+    _ = request;
+    try response.writer().print("{s}", .{ctx.data});
+}
+```
+
+More examples can be found in the [examples](examples) folder.
+
+## Building
+
+Apple Pie is being developed on Zig's master branch and tries to keep up-to-date with its latest development.
+
+To build Apple Pie a simple
+`zig build` will suffice.
+
+To build any of the examples, use the following:
+```
+zig build example -Dexample=<example_name>
+```
+it will appear in `zig-out/bin/example_name`

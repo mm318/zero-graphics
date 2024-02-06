@@ -315,7 +315,7 @@ pub const Renderer = struct {
                 );
 
                 if (has_focus) {
-                    const timestamp = @bitCast(u64, std.time.milliTimestamp() +% std.math.minInt(i64));
+                    const timestamp = @as(u64, @bitCast(std.time.milliTimestamp() +% std.math.minInt(i64)));
                     if ((timestamp % t.blink_interval) >= t.blink_interval / 2) {
                         const cursor_position = text_box.getCursor();
 
@@ -347,27 +347,27 @@ pub const Renderer = struct {
                 const image_size = image.getSize();
 
                 // aspects, if > 1.0, the width is bigger than the height
-                const image_aspect = @intToFloat(f32, image_size.width) / @intToFloat(f32, image_size.height);
-                const target_aspect = @intToFloat(f32, b.width) / @intToFloat(f32, b.height);
+                const image_aspect = @as(f32, @floatFromInt(image_size.width)) / @as(f32, @floatFromInt(image_size.height));
+                const target_aspect = @as(f32, @floatFromInt(b.width)) / @as(f32, @floatFromInt(b.height));
 
                 const dest_size = switch (pic.size) {
                     .unscaled => image_size,
                     .centered => image_size,
                     .stretch => Size.new(b.width, b.height),
                     .zoom => if (target_aspect < image_aspect)
-                        Size.new(b.width, @floatToInt(u15, @intToFloat(f32, b.width) / image_aspect))
+                        Size.new(b.width, @as(u15, @intFromFloat(@as(f32, @floatFromInt(b.width)) / image_aspect)))
                     else
-                        Size.new(@floatToInt(u15, @intToFloat(f32, b.height) * image_aspect), b.height),
+                        Size.new(@as(u15, @intFromFloat(@as(f32, @floatFromInt(b.height)) * image_aspect)), b.height),
                     .cover => if (target_aspect > image_aspect)
-                        Size.new(b.width, @floatToInt(u15, @intToFloat(f32, image_size.width) / target_aspect))
+                        Size.new(b.width, @as(u15, @intFromFloat(@as(f32, @floatFromInt(image_size.width)) / target_aspect)))
                     else
-                        Size.new(@floatToInt(u15, @intToFloat(f32, image_size.height) * target_aspect), b.height),
+                        Size.new(@as(u15, @intFromFloat(@as(f32, @floatFromInt(image_size.height)) * target_aspect)), b.height),
                     .contain => if (image_size.width < b.width and image_size.height < b.height)
                         image_size
                     else if (target_aspect < image_aspect)
-                        Size.new(b.width, @floatToInt(u15, @intToFloat(f32, b.width) / image_aspect))
+                        Size.new(b.width, @as(u15, @intFromFloat(@as(f32, @floatFromInt(b.width)) / image_aspect)))
                     else
-                        Size.new(@floatToInt(u15, @intToFloat(f32, b.height) * image_aspect), b.height),
+                        Size.new(@as(u15, @intFromFloat(@as(f32, @floatFromInt(b.height)) * image_aspect)), b.height),
                 };
 
                 const dest_offset = switch (pic.size) {
@@ -435,7 +435,7 @@ pub const Font = struct {
     inner: *const zg.Renderer2D.Font,
 
     inline fn cast(ptr: *anyopaque) *Font {
-        return @ptrCast(*Font, @alignCast(@alignOf(Font), ptr));
+        return @as(*Font, @ptrCast(@alignCast(@alignOf(Font), ptr)));
     }
 
     pub fn from(font: ui.Font) *Font {
@@ -466,7 +466,7 @@ pub const Image = struct {
     inner: *zg.ResourceManager.Texture,
 
     inline fn cast(ptr: *anyopaque) *Image {
-        return @ptrCast(*Image, @alignCast(@alignOf(Image), ptr));
+        return @as(*Image, @ptrCast(@alignCast(@alignOf(Image), ptr)));
     }
 
     pub fn from(image: ui.Image) *Image {

@@ -29,7 +29,7 @@ const attributes = Geometry.attributes;
 
 static_geometry_shader: *ResourceManager.Shader,
 
-/// list of CCW triangles that will be rendered 
+/// list of CCW triangles that will be rendered
 draw_calls: std.ArrayList(DrawCall),
 
 allocator: std.mem.Allocator,

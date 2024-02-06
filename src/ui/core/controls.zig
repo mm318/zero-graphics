@@ -21,6 +21,7 @@ pub const ClassID: type = blk: {
 
     break :blk @Type(.{
         .Enum = .{
+            .layout = .Auto,
             .tag_type = u32,
             .fields = fields,
             .decls = &.{},
@@ -65,7 +66,7 @@ pub const Control: type = blk: {
     for (classes) |class| {
         const field = UnionField{
             .name = class.name,
-            .type = class.type,
+            .field_type = class.type,
             .alignment = @alignOf(class.type),
         };
         fields = fields ++ [1]UnionField{field};

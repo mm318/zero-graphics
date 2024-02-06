@@ -37,7 +37,7 @@ shader_program: *ResourceManager.Shader,
 
 vertex_buffer: *ResourceManager.Buffer,
 
-/// list of CCW triangles that will be rendered 
+/// list of CCW triangles that will be rendered
 vertices: std.ArrayList(Vertex),
 draw_calls: std.ArrayList(DrawCall),
 
