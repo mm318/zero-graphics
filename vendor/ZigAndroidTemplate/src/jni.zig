@@ -55,7 +55,7 @@ pub const JNI = struct {
     }
 
     pub fn newString(self: Self, string: [*:0]const u8) android.jstring {
-        return self.invokeJni(.NewStringUTF, .{ string });
+        return self.invokeJni(.NewStringUTF, .{string});
     }
 
     pub fn AndroidGetUnicodeChar(self: *Self, keyCode: c_int, metaState: c_int) u21 {

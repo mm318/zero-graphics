@@ -672,10 +672,10 @@ pub fn render(self: Self, screen_size: Size) void {
                 .draw_vertices => |vertices| {
                     const tex_handle = vertices.texture orelse self.white_texture;
                     const rot_radians = vertices.rot_radians orelse 0;
-                    const rot_about = vertices.rot_about orelse Point{.x=0,.y=0};
+                    const rot_about = vertices.rot_about orelse Point{ .x = 0, .y = 0 };
 
                     gles.uniform1f(uniforms.rotateAngle, rot_radians);
-                    const rotateAbout:[2]f32 = .{@intToFloat(f32, rot_about.x), @intToFloat(f32, rot_about.y)};
+                    const rotateAbout: [2]f32 = .{ @intToFloat(f32, rot_about.x), @intToFloat(f32, rot_about.y) };
                     gles.uniform2fv(uniforms.rotateAbout, 1, @ptrCast([*]const f32, &rotateAbout));
 
                     gles.bindTexture(gles.TEXTURE_2D, tex_handle.instance orelse 0);
@@ -691,7 +691,7 @@ pub fn render(self: Self, screen_size: Size) void {
     }
 }
 
-fn cmpRotation(rot_radians_a:?f32, rot_about_a:?Point, rot_radians_b:?f32, rot_about_b:?Point) bool {
+fn cmpRotation(rot_radians_a: ?f32, rot_about_a: ?Point, rot_radians_b: ?f32, rot_about_b: ?Point) bool {
     const rotationThreshold = 0.05;
 
     // all null
@@ -710,9 +710,8 @@ fn cmpRotation(rot_radians_a:?f32, rot_about_a:?Point, rot_radians_b:?f32, rot_a
 }
 
 /// Appends a set of triangles to the renderer with the given `texture`.
-pub fn appendTriangles(self: *Self, texture: ?*ResourceManager.Texture, triangles: []const [3]Vertex, rot_radians:?f32, rot_about:?Point) DrawError!void {
-    const draw_call = if (self.draw_calls.items.len == 0 or self.draw_calls.items[self.draw_calls.items.len - 1] != .draw_vertices or self.draw_calls.items[self.draw_calls.items.len - 1].draw_vertices.texture != texture or !cmpRotation(self.draw_calls.items[self.draw_calls.items.len - 1].draw_vertices.rot_radians, self.draw_calls.items[self.draw_calls.items.len - 1].draw_vertices.rot_about, rot_radians, rot_about)
-    ) blk: {
+pub fn appendTriangles(self: *Self, texture: ?*ResourceManager.Texture, triangles: []const [3]Vertex, rot_radians: ?f32, rot_about: ?Point) DrawError!void {
+    const draw_call = if (self.draw_calls.items.len == 0 or self.draw_calls.items[self.draw_calls.items.len - 1] != .draw_vertices or self.draw_calls.items[self.draw_calls.items.len - 1].draw_vertices.texture != texture or !cmpRotation(self.draw_calls.items[self.draw_calls.items.len - 1].draw_vertices.rot_radians, self.draw_calls.items[self.draw_calls.items.len - 1].draw_vertices.rot_about, rot_radians, rot_about)) blk: {
         const dc = try self.draw_calls.addOne();
         dc.* = DrawCall{
             .draw_vertices = DrawVertices{

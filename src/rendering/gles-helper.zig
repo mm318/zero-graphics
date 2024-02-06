@@ -239,7 +239,7 @@ pub fn createAndCompileShaderSources(shader_type: gles.GLenum, sources: []const 
     return shader;
 }
 
-/// Sets the OpenGL clear color 
+/// Sets the OpenGL clear color
 pub fn clearColor(color: zero_graphics.Color) void {
     gles.clearColor(
         color.redf(),

@@ -117,7 +117,7 @@ pub fn reset(self: *Self, str: []const u8) !void {
     try self.bytes.replaceRange(0, self.bytes.items.len, str);
 }
 
-/// byteCount returns the number of bytes, which can be different from the number of code points and the 
+/// byteCount returns the number of bytes, which can be different from the number of code points and the
 /// number of graphemes.
 pub fn byteCount(self: Self) usize {
     return self.bytes.items.len;

@@ -34,13 +34,13 @@
 //! After the decompositions are extracted from UnicodeData.txt, 72K of text remains. In raw, uncompressed
 //! binary format, that is reduced to 48K. With UDDC compression we reduce that down to just 19K - beating
 //! brotli and gzip compression:
-//! 
+//!
 //! | File                    | Before (bytes) | After (bytes) | Change                 |
 //! |-------------------------|----------------|---------------|------------------------|
 //! | `Decompositions.bin`    | 48,242         | 19,072        | -60.5% (-29,170 bytes) |
 //! | `Decompositions.bin.br` | 24,411         | 14,783        | -39.4% (-9,628 bytes)  |
 //! | `Decompositions.bin.gz` | 30,931         | 15,670        | -49.34% (15,261 bytes) |
-//! 
+//!
 //! Similarly, for allkeys.txt, we find a raw, uncompressed binary format results in a 365K file. With UDDC
 //! compression we reduce that down to just 99K, again beating brotli and gzip compression:
 //!
