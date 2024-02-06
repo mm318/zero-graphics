@@ -10,7 +10,6 @@ Comes with a pixel-perfect 2D renderer and maybe some day even with a bit of a 3
 - Multi-platform support
   - Desktop (Linux, MacOS, Windows, ...)
   - WebAssembly
-  - Android
 - Pixel perfect 2D rendering
   - Primitives (line, rectangle, triangle, ...)
   - Text / TTF fonts
@@ -30,11 +29,10 @@ The CI coverage currently looks like this:
 | -------------- | ------- | ----- | ----- |
 | Desktop        | ✅      | ✅    | ✅    |
 | WebAssembly    | ✅      | ✅    | ✅    |
-| Android        | ✅      | ✅    | ✅    |
 | `zero-init`    | ✅      | ✅    | ✅    |
 | `zero-convert` | ✅      | ✅    | ✅    |
 
-Status: [![Nightly Build](https://github.com/MasterQ32/zero-graphics/actions/workflows/nightly.yml/badge.svg)](https://github.com/MasterQ32/zero-graphics/actions/workflows/nightly.yml)
+Status: [![Nightly Build](https://github.com/mm318/zero-graphics/actions/workflows/nightly.yml/badge.svg)](https://github.com/mm318/zero-graphics/actions/workflows/nightly.yml)
 
 ### Previews
 
@@ -58,10 +56,6 @@ Work-in-progress, but works quite well already. There is one [big project](https
     - [x] Input Mouse
     - [ ] Input Keyboard
   - [ ] Windows Desktop (not tested, but should work via SDL2)
-  - [ ] Android
-    - [x] Create OpenGL ES 2.0 context
-    - [x] Input Mouse
-    - [ ] Input Keyboard
 - [x] Create an OpenGL ES 2.0 context
 - [x] Provide input events
   - [x] Single pointer motion (finger or mouse)
@@ -114,14 +108,6 @@ Work-in-progress, but works quite well already. There is one [big project](https
 - [js glue code](www/zero-graphics.js)
 - [root page](www/application.ztt)
 
-### Android
-
-- Android SDK
-- Android NDK
-- Android Build Tools
-- OpenJDK
-- some other tools
-
 ## Building / Running
 
 This project uses [submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules), so to get started, clone the repo with submodules recursively:
@@ -163,17 +149,6 @@ Includes a teeny tiny web server for debugging.
 ```
 
 Now visit http://127.0.0.1:8000/demo_application.htm to see the demo.
-
-### Android
-
-Connect your phone first and install both a JDK as well as the Android SDK with NDK included. The ZeroGraphics build system will tell you if
-it couldn't auto-detect the SDK paths.
-
-```sh-session
-[user@computer zero-graphics]$ zig build -Denable-android run-app
-```
-
-The app should now be installed and started on your phone.
 
 ## Documentation
 

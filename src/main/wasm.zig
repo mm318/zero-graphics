@@ -866,3 +866,16 @@ const websocket = struct {
         }
     }
 };
+
+// Define root.log to override the std implementation
+pub fn log(
+    comptime level: std.log.Level,
+    comptime scope: @TypeOf(.EnumLiteral),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    _ = level;
+    _ = scope;
+    _ = format;
+    _ = args;
+}
