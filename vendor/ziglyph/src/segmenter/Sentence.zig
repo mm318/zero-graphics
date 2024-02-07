@@ -93,7 +93,7 @@ pub const SentenceIterator = struct {
         self.start = self.tokens.items[0];
 
         // Set token offsets.
-        for (self.tokens.items) |*token, i| {
+        for (self.tokens.items, 0..) |*token, i| {
             token.offset = i;
         }
 
@@ -259,9 +259,9 @@ pub const SentenceIterator = struct {
 
         if (n < 0) {
             if (index == 0 or -%n > index) return null;
-            index -= @intCast(usize, -%n);
+            index -= @as(usize, @intCast(-%n));
         } else {
-            const un = @intCast(usize, n);
+            const un = @as(usize, @intCast(n));
             if (index + un >= self.tokens.items.len) return null;
             index += un;
         }
@@ -670,9 +670,9 @@ pub fn ComptimeSentenceIterator(comptime str: []const u8) type {
 
             if (n < 0) {
                 if (index == 0 or -%n > index) return null;
-                index -= @intCast(usize, -%n);
+                index -= @as(usize, @intCast(-%n));
             } else {
-                const un = @intCast(usize, n);
+                const un = @as(usize, @intCast(n));
                 if (index + un >= self.tokens.len) return null;
                 index += un;
             }
@@ -775,7 +775,7 @@ test "Segmentation ComptimeSentenceIterator" {
     ;
     const want = &[_][]const u8{ s1, s2 };
 
-    for (sentences) |sentence, i| {
+    for (sentences, 0..) |sentence, i| {
         try testing.expect(sentence.eql(want[i]));
     }
 }

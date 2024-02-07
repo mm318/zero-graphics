@@ -134,8 +134,8 @@ pub const AndroidApp = struct {
             old.deinit();
         }
 
-        self.screen_width = @intToFloat(f32, android.ANativeWindow_getWidth(window));
-        self.screen_height = @intToFloat(f32, android.ANativeWindow_getHeight(window));
+        self.screen_width = @as(f32, @floatFromInt(android.ANativeWindow_getWidth(window)));
+        self.screen_height = @as(f32, @floatFromInt(android.ANativeWindow_getHeight(window)));
 
         self.egl = EGLContext.init(window, .gles2) catch |err| blk: {
             logger.err("Failed to initialize EGL for window: {}\n", .{err});
@@ -157,8 +157,8 @@ pub const AndroidApp = struct {
         self.egl_lock.lock();
         defer self.egl_lock.unlock();
 
-        self.screen_width = @intToFloat(f32, android.ANativeWindow_getWidth(window));
-        self.screen_height = @intToFloat(f32, android.ANativeWindow_getHeight(window));
+        self.screen_width = @as(f32, @floatFromInt(android.ANativeWindow_getWidth(window)));
+        self.screen_height = @as(f32, @floatFromInt(android.ANativeWindow_getHeight(window)));
     }
 
     pub fn onNativeWindowDestroyed(self: *Self, window: *android.ANativeWindow) !void {
@@ -222,7 +222,7 @@ pub const AndroidApp = struct {
                 android.ACONFIGURATION_DENSITY_XXHIGH,
                 android.ACONFIGURATION_DENSITY_XXXHIGH,
                 => {
-                    screen_dpi = @intToFloat(f32, density);
+                    screen_dpi = @as(f32, @floatFromInt(density));
                 },
                 android.ACONFIGURATION_DENSITY_DEFAULT => {
                     screen_dpi = 96.0;
@@ -276,7 +276,7 @@ pub const AndroidApp = struct {
                             continue;
                         }
 
-                        const event_type = @intToEnum(android.AInputEventType, android.AInputEvent_getType(event));
+                        const event_type = @as(android.AInputEventType, @enumFromInt(android.AInputEvent_getType(event)));
                         const handled = switch (event_type) {
                             .AINPUT_EVENT_TYPE_KEY => try self.processKeyEvent(event.?),
                             .AINPUT_EVENT_TYPE_MOTION => try self.processMotionEvent(event.?),
@@ -329,8 +329,8 @@ pub const AndroidApp = struct {
                 if (self.egl) |egl| {
                     try egl.makeCurrent();
 
-                    const screen_width = @floatToInt(u15, self.screen_width);
-                    const screen_height = @floatToInt(u15, self.screen_height);
+                    const screen_width = @as(u15, @intFromFloat(self.screen_width));
+                    const screen_height = @as(u15, @intFromFloat(self.screen_height));
 
                     if (self.app_ready) {
                         try self.application.resize(screen_width, screen_height);
@@ -393,7 +393,7 @@ pub const AndroidApp = struct {
     }
 
     fn processKeyEvent(self: *Self, event: *android.AInputEvent) !bool {
-        const event_type = @intToEnum(android.AKeyEventActionType, android.AKeyEvent_getAction(event));
+        const event_type = @as(android.AKeyEventActionType, @enumFromInt(android.AKeyEvent_getAction(event)));
         std.log.scoped(.input).debug(
             \\Key Press Event: {}
             \\Flags:       {}
@@ -448,7 +448,7 @@ pub const AndroidApp = struct {
     }
 
     fn processMotionEvent(self: *Self, event: *android.AInputEvent) !bool {
-        const event_type = @intToEnum(android.AMotionEventActionType, android.AMotionEvent_getAction(event));
+        const event_type = @as(android.AMotionEventActionType, @enumFromInt(android.AMotionEvent_getAction(event)));
 
         {
             var jni = JNI.init(self.activity);
@@ -539,7 +539,7 @@ pub const AndroidApp = struct {
         if (cnt > 0) {
             const x = android.AMotionEvent_getX(event, 0);
             const y = android.AMotionEvent_getY(event, 0);
-            const point = Point{ .x = @floatToInt(i16, x), .y = @floatToInt(i16, y) };
+            const point = Point{ .x = @as(i16, @intFromFloat(x)), .y = @as(i16, @intFromFloat(y)) };
             switch (event_type) {
                 .AMOTION_EVENT_ACTION_DOWN => {
                     try self.zero_input.pushEvent(.{

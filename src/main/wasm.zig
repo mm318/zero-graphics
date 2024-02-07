@@ -61,7 +61,7 @@ fn writeLog(_: void, msg: []const u8) WriteError!usize {
 }
 
 pub fn milliTimestamp() i64 {
-    return @floatToInt(i64, now_f64());
+    return @as(i64, @intFromFloat(now_f64()));
 }
 
 pub fn getDisplayDPI() f32 {
@@ -130,7 +130,7 @@ export fn app_init() u32 {
 
     app_instance.setupGraphics() catch |err| @panic(@errorName(err));
 
-    app_instance.resize(@intCast(u15, meta_getScreenW()), @intCast(u15, meta_getScreenH())) catch return 2;
+    app_instance.resize(@as(u15, @intCast(meta_getScreenW())), @as(u15, @intCast(meta_getScreenH()))) catch return 2;
 
     return 0;
 }
@@ -165,8 +165,8 @@ export fn app_input_sendMouseUp(x: i16, y: i16, button: u8) void {
 
 export fn app_input_sendMouseMotion(x: i16, y: i16) void {
     input_handler.pushEvent(.{ .pointer_motion = .{
-        .x = @floatToInt(i16, @intToFloat(f32, x)),
-        .y = @floatToInt(i16, @intToFloat(f32, y)),
+        .x = @as(i16, @intFromFloat(@as(f32, @floatFromInt(x)))),
+        .y = @as(i16, @intFromFloat(@as(f32, @floatFromInt(y)))),
     } }) catch |e| logInputError(e);
 }
 
@@ -421,7 +421,7 @@ export fn app_input_sendKeyUp(js_scancode: u32) void {
 export fn app_input_sendTextInput(codepoint: u32, shift: bool, alt: bool, ctrl: bool, super: bool) void {
     var buf_str: [8]u8 = undefined;
 
-    const buf_len = std.unicode.utf8Encode(@truncate(u21, codepoint), &buf_str) catch |err| {
+    const buf_len = std.unicode.utf8Encode(@as(u21, @truncate(codepoint)), &buf_str) catch |err| {
         logInputError(err);
         return;
     };
@@ -441,8 +441,8 @@ var last_width: u15 = 0;
 var last_height: u15 = 0;
 
 export fn app_update() usize {
-    const screen_width = @intCast(u15, meta_getScreenW());
-    const screen_height = @intCast(u15, meta_getScreenH());
+    const screen_width = @as(u15, @intCast(meta_getScreenW()));
+    const screen_height = @as(u15, @intCast(meta_getScreenH()));
 
     if (screen_width != last_width or screen_height != last_height) {
         app_instance.resize(screen_width, screen_height) catch |e| return mapWasmError(e);
@@ -717,7 +717,7 @@ pub const WebSocket = struct {
 
         std.debug.assert(protocols.len < ptrs.len);
 
-        for (protocols) |slice, i| {
+        for (protocols, 0..) |slice, i| {
             ptrs[i] = slice.ptr;
             lens[i] = slice.len;
         }

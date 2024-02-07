@@ -135,7 +135,7 @@ fn validateSignature(comptime Container: type, comptime symbol: []const u8, comp
             if (func_info.args.len != expected_argv.len)
                 @compileError("Argument mismatch for Application." ++ symbol);
 
-            for (expected_argv) |expected, i| {
+            for (expected_argv, 0..) |expected, i| {
                 if (func_info.args[i].arg_type != expected)
                     @compileError("Type mismatch for Application." ++ symbol);
             }

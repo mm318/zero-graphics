@@ -7,7 +7,7 @@ const logger = std.log.scoped(.zerog_gles_helper);
 
 fn QueryExtension(comptime query: []const []const u8) type {
     var fields: [query.len]std.builtin.Type.StructField = undefined;
-    for (fields) |*fld, i| {
+    for (fields, 0..) |*fld, i| {
         fld.* = std.builtin.Type.StructField{
             .name = query[i],
             .field_type = bool,
@@ -93,7 +93,7 @@ fn glesDebugProc(
         debug.DEBUG_TYPE_POP_GROUP_KHR => "pop group",
         else => "unknown",
     };
-    const message = message_ptr[0..@intCast(usize, length)];
+    const message = message_ptr[0..@as(usize, @intCast(length))];
 
     const fmt_string = "[{s}] [{s}] {s}";
     var fmt_arg = .{ source_name, type_name, message };
@@ -160,7 +160,7 @@ pub fn attributes(comptime list: anytype) []const Attribute {
 
     comptime var items: [fields.len]Attribute = undefined;
     comptime {
-        inline for (fields) |attrib, i| {
+        inline for (fields, 0..) |attrib, i| {
             items[i] = Attribute{
                 .name = attrib.name[0.. :0],
                 .index = @field(list, attrib.name),
@@ -219,16 +219,16 @@ pub fn createAndCompileShaderSources(shader_type: gles.GLenum, sources: []const 
     var shader_ptrs: [max_sources][*]const u8 = undefined;
     var shader_lens: [max_sources]gles.GLint = undefined;
 
-    for (sources) |source, i| {
+    for (sources, 0..) |source, i| {
         shader_ptrs[i] = source.ptr;
-        shader_lens[i] = @intCast(gles.GLint, source.len);
+        shader_lens[i] = @as(gles.GLint, @intCast(source.len));
     }
 
     // Create and compile vertex shader
     const shader = gles.createShader(shader_type);
     errdefer gles.deleteShader(shader);
 
-    gles.shaderSource(shader, @intCast(gles.GLsizei, sources.len), &shader_ptrs, &shader_lens);
+    gles.shaderSource(shader, @as(gles.GLsizei, @intCast(sources.len)), &shader_ptrs, &shader_lens);
     gles.compileShader(shader);
 
     var status: gles.GLint = undefined;

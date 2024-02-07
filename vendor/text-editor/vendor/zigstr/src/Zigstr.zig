@@ -48,7 +48,7 @@ pub fn fromCodePoints(allocator: mem.Allocator, code_points: []const u21) !Self 
             .bytes = blk_b: {
                 var al = try std.ArrayList(u8).initCapacity(allocator, code_points.len);
                 for (code_points) |cp| {
-                    al.appendAssumeCapacity(@intCast(u8, cp));
+                    al.appendAssumeCapacity(@as(u8, @intCast(cp)));
                 }
                 break :blk_b al;
             },
@@ -424,10 +424,10 @@ pub fn reverse(self: *Self) !void {
     defer self.allocator.free(gcs);
 
     var new_al = try std.ArrayList(u8).initCapacity(self.allocator, self.bytes.items.len);
-    var gc_index: isize = @intCast(isize, gcs.len) - 1;
+    var gc_index: isize = @as(isize, @intCast(gcs.len)) - 1;
 
     while (gc_index >= 0) : (gc_index -= 1) {
-        new_al.appendSliceAssumeCapacity(gcs[@intCast(usize, gc_index)].bytes);
+        new_al.appendSliceAssumeCapacity(gcs[@as(usize, @intCast(gc_index))].bytes);
     }
 
     self.bytes.deinit();
@@ -555,10 +555,10 @@ pub fn byteAt(self: Self, i: isize) !u8 {
     if (i >= self.bytes.items.len) return error.IndexOutOfBounds;
     if (i < 0) {
         if (-%i > self.bytes.items.len) return error.IndexOutOfBounds;
-        return self.bytes.items[self.bytes.items.len - @intCast(usize, -i)];
+        return self.bytes.items[self.bytes.items.len - @as(usize, @intCast(-i))];
     }
 
-    return self.bytes.items[@intCast(usize, i)];
+    return self.bytes.items[@as(usize, @intCast(i))];
 }
 
 /// codePointAt returns the `i`th code point.
@@ -569,10 +569,10 @@ pub fn codePointAt(self: *Self, i: isize) !u21 {
     if (i >= cps.len) return error.IndexOutOfBounds;
     if (i < 0) {
         if (-%i > cps.len) return error.IndexOutOfBounds;
-        return cps[cps.len - @intCast(usize, -i)];
+        return cps[cps.len - @as(usize, @intCast(-i))];
     }
 
-    return cps[@intCast(usize, i)];
+    return cps[@as(usize, @intCast(i))];
 }
 
 /// graphemeAt returns the `i`th grapheme cluster.
@@ -583,10 +583,10 @@ pub fn graphemeAt(self: *Self, i: isize) !Grapheme {
     if (i >= gcs.len) return error.IndexOutOfBounds;
     if (i < 0) {
         if (-%i > gcs.len) return error.IndexOutOfBounds;
-        return gcs[gcs.len - @intCast(usize, -i)];
+        return gcs[gcs.len - @as(usize, @intCast(-i))];
     }
 
-    return gcs[@intCast(usize, i)];
+    return gcs[@as(usize, @intCast(i))];
 }
 
 /// byteSlice returnes the bytes from this Zigstr in the specified range from `start` to `end` - 1.
@@ -857,7 +857,7 @@ test "Zigstr graphemes" {
     const gcs = try str.graphemes(allocator);
     defer allocator.free(gcs);
 
-    for (gcs) |gc, j| {
+    for (gcs, 0..) |gc, j| {
         try expect(gc.eql(want[j]));
     }
 

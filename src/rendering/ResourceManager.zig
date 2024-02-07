@@ -121,7 +121,7 @@ const ResourceDataHandle = struct {
     fn typeId(comptime T: type) TypeID {
         _ = T;
         if (@import("builtin").mode == .Debug) {
-            return @ptrToInt(&struct {
+            return @intFromPtr(&struct {
                 var unique: u8 = 0;
             }.unique);
         }
@@ -137,13 +137,13 @@ const ResourceDataHandle = struct {
         var safe_ptr: *T = ptr;
         return ResourceDataHandle{
             .type_id = typeId(T),
-            .pointer = @ptrToInt(safe_ptr),
+            .pointer = @intFromPtr(safe_ptr),
         };
     }
 
     pub fn convertTo(self: ResourceDataHandle, comptime T: type) *T {
         std.debug.assert(self.type_id == typeId(T));
-        return @intToPtr(*T, self.pointer);
+        return @as(*T, @ptrFromInt(self.pointer));
     }
 };
 
@@ -428,11 +428,11 @@ pub const EnvironmentMap = struct {
         defer gl.bindTexture(gl.TEXTURE_CUBE_MAP, 0);
 
         {
-            for (env_data.sides.values) |buffer, i| {
+            for (env_data.sides.values, 0..) |buffer, i| {
                 const key = EnvironmentMapData.Sides.Indexer.keyForIndex(i);
 
                 std.debug.assert(buffer.len == computeByteSize(env_data.width, env_data.height));
-                gl.texImage2D(@enumToInt(key), 0, gl.RGBA, env_data.width, env_data.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, buffer.ptr);
+                gl.texImage2D(@intFromEnum(key), 0, gl.RGBA, env_data.width, env_data.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, buffer.ptr);
             }
         }
 
@@ -606,12 +606,12 @@ pub const Shader = struct {
                 var arr = std.ArrayList(u8).init(rm.allocator);
                 defer arr.deinit();
 
-                try arr.resize(@intCast(usize, len));
+                try arr.resize(@as(usize, @intCast(len)));
 
                 var total_len: gl.GLint = 0;
                 gl.getProgramInfoLog(program, len, &total_len, arr.items.ptr);
 
-                logger.err("{s}\n", .{arr.items[0..@intCast(usize, total_len)]});
+                logger.err("{s}\n", .{arr.items[0..@as(usize, @intCast(total_len))]});
             }
 
             return error.InvalidFormat;
@@ -760,16 +760,16 @@ pub const Vertex = extern struct {
     }
 
     pub fn eql(lhs: Vertex, rhs: Vertex, abs_delta: f32, normal_threshold: f32, uv_delta: f32) bool {
-        if (@fabs(lhs.x - rhs.x) >= abs_delta) return false;
-        if (@fabs(lhs.y - rhs.y) >= abs_delta) return false;
-        if (@fabs(lhs.z - rhs.z) >= abs_delta) return false;
+        if (@abs(lhs.x - rhs.x) >= abs_delta) return false;
+        if (@abs(lhs.y - rhs.y) >= abs_delta) return false;
+        if (@abs(lhs.z - rhs.z) >= abs_delta) return false;
 
         const dot = lhs.nx * rhs.nx + lhs.ny * rhs.ny + lhs.nz * rhs.nz;
         if (dot < normal_threshold)
             return false;
 
-        if (@fabs(lhs.u - rhs.u) >= uv_delta) return false;
-        if (@fabs(lhs.v - rhs.v) >= uv_delta) return false;
+        if (@abs(lhs.u - rhs.u) >= uv_delta) return false;
+        if (@abs(lhs.v - rhs.v) >= uv_delta) return false;
 
         return true;
     }
@@ -828,13 +828,13 @@ pub const Geometry = struct {
 
         if (geometry.vertices.len > 0) {
             gl.bindBuffer(gl.ARRAY_BUFFER, bufs[0]);
-            gl.bufferData(gl.ARRAY_BUFFER, @intCast(gl.GLsizei, @sizeOf(Vertex) * geometry.vertices.len), geometry.vertices.ptr, gl.STATIC_DRAW);
+            gl.bufferData(gl.ARRAY_BUFFER, @as(gl.GLsizei, @intCast(@sizeOf(Vertex) * geometry.vertices.len)), geometry.vertices.ptr, gl.STATIC_DRAW);
             gl.bindBuffer(gl.ARRAY_BUFFER, 0);
         }
 
         if (geometry.indices.len > 0) {
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufs[1]);
-            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, @intCast(gl.GLsizei, @sizeOf(u16) * geometry.indices.len), geometry.indices.ptr, gl.STATIC_DRAW);
+            gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, @as(gl.GLsizei, @intCast(@sizeOf(u16) * geometry.indices.len)), geometry.indices.ptr, gl.STATIC_DRAW);
             gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, 0);
         }
 
@@ -856,9 +856,9 @@ pub const Geometry = struct {
 
     pub fn bind(self: Geometry) void {
         gl.bindBuffer(gl.ARRAY_BUFFER, self.vertex_buffer.?);
-        gl.vertexAttribPointer(attributes.vPosition, 3, gl.FLOAT, gl.FALSE, @sizeOf(Vertex), @intToPtr(?*const anyopaque, @offsetOf(Vertex, "x")));
-        gl.vertexAttribPointer(attributes.vNormal, 3, gl.FLOAT, gl.TRUE, @sizeOf(Vertex), @intToPtr(?*const anyopaque, @offsetOf(Vertex, "nx")));
-        gl.vertexAttribPointer(attributes.vUV, 2, gl.FLOAT, gl.FALSE, @sizeOf(Vertex), @intToPtr(?*const anyopaque, @offsetOf(Vertex, "u")));
+        gl.vertexAttribPointer(attributes.vPosition, 3, gl.FLOAT, gl.FALSE, @sizeOf(Vertex), @as(?*const anyopaque, @ptrFromInt(@offsetOf(Vertex, "x"))));
+        gl.vertexAttribPointer(attributes.vNormal, 3, gl.FLOAT, gl.TRUE, @sizeOf(Vertex), @as(?*const anyopaque, @ptrFromInt(@offsetOf(Vertex, "nx"))));
+        gl.vertexAttribPointer(attributes.vUV, 2, gl.FLOAT, gl.FALSE, @sizeOf(Vertex), @as(?*const anyopaque, @ptrFromInt(@offsetOf(Vertex, "u"))));
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, self.index_buffer.?);
     }
 };
@@ -999,7 +999,7 @@ pub fn Z3DGeometry(comptime TextureLoader: ?type) type {
             if (geometry_data.len < launder(@sizeOf(z3d.CommonHeader)))
                 return error.InvalidFormat;
 
-            const common_header = @ptrCast(*align(1) const z3d.CommonHeader, &geometry_data[0]);
+            const common_header = @as(*align(1) const z3d.CommonHeader, @ptrCast(&geometry_data[0]));
 
             if (!std.mem.eql(u8, &common_header.magic, &z3d.magic_number))
                 return error.InvalidFormat;
@@ -1011,7 +1011,7 @@ pub fn Z3DGeometry(comptime TextureLoader: ?type) type {
 
             switch (common_header.type) {
                 .static => {
-                    const header = @ptrCast(*align(1) const z3d.static_model.Header, &geometry_data[0]);
+                    const header = @as(*align(1) const z3d.static_model.Header, @ptrCast(&geometry_data[0]));
                     const vertex_count = std.mem.littleToNative(u32, header.vertex_count);
                     const index_count = std.mem.littleToNative(u32, header.index_count);
                     const mesh_count = std.mem.littleToNative(u32, header.mesh_count);
@@ -1026,9 +1026,9 @@ pub fn Z3DGeometry(comptime TextureLoader: ?type) type {
                     const index_offset = vertex_offset + 32 * vertex_count;
                     const mesh_offset = index_offset + 2 * index_count;
 
-                    const src_vertices = @ptrCast([*]align(1) const z3d.static_model.Vertex, &geometry_data[vertex_offset]);
-                    const src_indices = @ptrCast([*]align(1) const z3d.static_model.Index, &geometry_data[index_offset]);
-                    const src_meshes = @ptrCast([*]align(1) const z3d.static_model.Mesh, &geometry_data[mesh_offset]);
+                    const src_vertices = @as([*]align(1) const z3d.static_model.Vertex, @ptrCast(&geometry_data[vertex_offset]));
+                    const src_indices = @as([*]align(1) const z3d.static_model.Index, @ptrCast(&geometry_data[index_offset]));
+                    const src_meshes = @as([*]align(1) const z3d.static_model.Mesh, @ptrCast(&geometry_data[mesh_offset]));
 
                     const dst_vertices = try rm.allocator.alloc(Vertex, vertex_count);
                     errdefer rm.allocator.free(dst_vertices);
@@ -1037,7 +1037,7 @@ pub fn Z3DGeometry(comptime TextureLoader: ?type) type {
                     const dst_meshes = try rm.allocator.alloc(Mesh, mesh_count);
                     errdefer rm.allocator.free(dst_meshes);
 
-                    for (dst_vertices) |*vtx, i| {
+                    for (dst_vertices, 0..) |*vtx, i| {
                         const src = src_vertices[i];
                         vtx.* = Vertex{
                             .x = src.x,
@@ -1050,11 +1050,11 @@ pub fn Z3DGeometry(comptime TextureLoader: ?type) type {
                             .v = src.v,
                         };
                     }
-                    for (dst_indices) |*idx, i| {
+                    for (dst_indices, 0..) |*idx, i| {
                         idx.* = std.mem.littleToNative(u16, src_indices[i]);
                     }
 
-                    for (dst_meshes) |*mesh, i| {
+                    for (dst_meshes, 0..) |*mesh, i| {
                         const src_mesh = src_meshes[i];
                         mesh.* = Mesh{
                             .offset = std.mem.littleToNative(u32, src_mesh.offset),
@@ -1322,8 +1322,8 @@ pub const DecodeImageData = struct {
         // std.debug.assert(i == image.width * image.height);
 
         return TextureData{
-            .width = @intCast(u15, image.width),
-            .height = @intCast(u15, image.height),
+            .width = @as(u15, @intCast(image.width)),
+            .height = @as(u15, @intCast(image.height)),
             .pixels = buffer,
         };
     }
@@ -1355,8 +1355,8 @@ pub const DecodeCompoundPng = struct {
 
         var data = EnvironmentMapData{
             .arena = std.heap.ArenaAllocator.init(rm.allocator),
-            .width = @intCast(u15, image.height),
-            .height = @intCast(u15, image.height),
+            .width = @as(u15, @intCast(image.height)),
+            .height = @as(u15, @intCast(image.height)),
             .sides = EnvironmentMapData.Sides.initUndefined(),
         };
         errdefer data.deinit(rm);

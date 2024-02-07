@@ -74,7 +74,7 @@ const JFIFHeader = struct {
         const reader = stream.reader();
         try stream.seekTo(2);
         const maybe_app0_marker = try reader.readIntBig(u16);
-        if (maybe_app0_marker != @enumToInt(Markers.application0)) {
+        if (maybe_app0_marker != @intFromEnum(Markers.application0)) {
             return error.App0MarkerDoesNotExist;
         }
 
@@ -92,7 +92,7 @@ const JFIFHeader = struct {
         _ = try reader.readByte();
 
         const jfif_revision = try reader.readIntBig(u16);
-        const density_unit = @intToEnum(DensityUnit, try reader.readByte());
+        const density_unit = @as(DensityUnit, @enumFromInt(try reader.readByte()));
         const x_density = try reader.readIntBig(u16);
         const y_density = try reader.readIntBig(u16);
 
@@ -104,7 +104,7 @@ const JFIFHeader = struct {
         }
 
         // Make sure there are no application markers after us.
-        if (((try reader.readIntBig(u16)) & 0xFFF0) == @enumToInt(Markers.application0)) {
+        if (((try reader.readIntBig(u16)) & 0xFFF0) == @intFromEnum(Markers.application0)) {
             return error.ExtraneousApplicationMarker;
         }
 
@@ -195,7 +195,7 @@ const HuffmanTable = struct {
         if (JPEG_VERY_DEBUG) std.debug.print("  Decoded huffman codes map:\n", .{});
 
         var code: u16 = 0;
-        for (code_counts) |count, i| {
+        for (code_counts, 0..) |count, i| {
             if (JPEG_VERY_DEBUG) {
                 std.debug.print("    Length {}: ", .{i + 1});
                 if (count == 0) {
@@ -208,12 +208,12 @@ const HuffmanTable = struct {
             var j: usize = 0;
             while (j < count) : (j += 1) {
                 // Check if we hit all 1s, i.e. 111111 for i == 6, which is an invalid value
-                if (code == (@intCast(u17, 1) << (@intCast(u5, i) + 1)) - 1) {
+                if (code == (@as(u17, @intCast(1)) << (@as(u5, @intCast(i)) + 1)) - 1) {
                     return ImageReadError.InvalidData;
                 }
 
                 const byte = try reader.readByte();
-                try huffman_code_map.put(.{ .length_minus_one = @intCast(u4, i), .code = code }, byte);
+                try huffman_code_map.put(.{ .length_minus_one = @as(u4, @intCast(i)), .code = code }, byte);
                 code += 1;
 
                 if (JPEG_VERY_DEBUG) std.debug.print("      {b} => 0x{X}\n", .{ code, byte });
@@ -264,7 +264,7 @@ const HuffmanReader = struct {
             self.bits_left = 8;
         }
 
-        const bit: u1 = @intCast(u1, self.byte_buffer >> 7);
+        const bit: u1 = @as(u1, @intCast(self.byte_buffer >> 7));
         self.byte_buffer <<= 1;
         self.bits_left -= 1;
 
@@ -277,7 +277,7 @@ const HuffmanReader = struct {
         var i: u5 = 0;
         while (i < 16) : (i += 1) {
             code = (code << 1) | (try self.readBit());
-            if (self.table.?.code_map.get(.{ .length_minus_one = @intCast(u4, i), .code = code })) |value| {
+            if (self.table.?.code_map.get(.{ .length_minus_one = @as(u4, @intCast(i)), .code = code })) |value| {
                 return value;
             }
         }
@@ -317,7 +317,7 @@ const HuffmanReader = struct {
         else
             (@as(i32, 1) << (magnitude - 1));
 
-        return base + @bitCast(i32, unsigned_bits);
+        return base + @as(i32, @bitCast(unsigned_bits));
     }
 };
 
@@ -332,8 +332,8 @@ const Component = struct {
         const sampling_factors = try reader.readByte();
         const quantization_table_id = try reader.readByte();
 
-        const horizontal_sampling_factor = @intCast(u4, sampling_factors >> 4);
-        const vertical_sampling_factor = @intCast(u4, sampling_factors & 0xF);
+        const horizontal_sampling_factor = @as(u4, @intCast(sampling_factors >> 4));
+        const vertical_sampling_factor = @as(u4, @intCast(sampling_factors & 0xF));
 
         if (horizontal_sampling_factor < 1 or horizontal_sampling_factor > 4) {
             return ImageReadError.InvalidData;
@@ -421,8 +421,8 @@ const ScanComponentSpec = struct {
         const component_selector = try reader.readByte();
         const entropy_coding_selectors = try reader.readByte();
 
-        const dc_table_selector = @intCast(u4, entropy_coding_selectors >> 4);
-        const ac_table_selector = @intCast(u4, entropy_coding_selectors & 0b11);
+        const dc_table_selector = @as(u4, @intCast(entropy_coding_selectors >> 4));
+        const ac_table_selector = @as(u4, @intCast(entropy_coding_selectors & 0b11));
 
         if (JPEG_VERY_DEBUG) {
             std.debug.print("    Component spec: selector={}, DC table ID={}, AC table ID={}\n", .{ component_selector, dc_table_selector, ac_table_selector });
@@ -484,8 +484,8 @@ const ScanHeader = struct {
         if (JPEG_VERY_DEBUG) std.debug.print("  Spectral selection: {}-{}\n", .{ start_of_spectral_selection, end_of_spectral_selection });
 
         const approximation_bits = try reader.readByte();
-        const approximation_high = @intCast(u4, approximation_bits >> 4);
-        const approximation_low = @intCast(u4, approximation_bits & 0b1111);
+        const approximation_high = @as(u4, @intCast(approximation_bits >> 4));
+        const approximation_low = @as(u4, @intCast(approximation_bits & 0b1111));
 
         segment_size -= 1;
         if (JPEG_VERY_DEBUG) std.debug.print("  Approximation bit position: high={} low={}\n", .{ approximation_high, approximation_low });
@@ -567,8 +567,8 @@ const IDCTMultipliers = blk: {
                     const C_u: f32 = if (u == 0) 1.0 / @sqrt(2.0) else 1.0;
                     const C_v: f32 = if (v == 0) 1.0 / @sqrt(2.0) else 1.0;
 
-                    const x_cosine = @cos(((2 * @intToFloat(f32, x) + 1) * @intToFloat(f32, u) * std.math.pi) / 16.0);
-                    const y_cosine = @cos(((2 * @intToFloat(f32, y) + 1) * @intToFloat(f32, v) * std.math.pi) / 16.0);
+                    const x_cosine = @cos(((2 * @as(f32, @floatFromInt(x)) + 1) * @as(f32, @floatFromInt(u)) * std.math.pi) / 16.0);
+                    const y_cosine = @cos(((2 * @as(f32, @floatFromInt(y)) + 1) * @as(f32, @floatFromInt(v)) * std.math.pi) / 16.0);
                     const uv_value = C_u * C_v * x_cosine * y_cosine;
                     multipliers[y][x][u][v] = uv_value;
                 }
@@ -592,7 +592,7 @@ const Scan = struct {
     }
 
     fn decodeMCU(frame: *Frame, scan_header: ScanHeader, mcu_id: usize, reader: *HuffmanReader, prediction_values: *[3]i12) ImageReadError!void {
-        for (scan_header.components) |maybe_component, component_id| {
+        for (scan_header.components, 0..) |maybe_component, component_id| {
             _ = component_id;
             if (maybe_component == null)
                 break;
@@ -606,7 +606,7 @@ const Scan = struct {
         // file size can be reduced that way. Therefore we need to select the correct
         // destination for this component.
         const component_destination = blk: {
-            for (frame.frame_header.components) |frame_component, i| {
+            for (frame.frame_header.components, 0..) |frame_component, i| {
                 if (frame_component.id == component.component_selector) {
                     break :blk i;
                 }
@@ -638,9 +638,9 @@ const Scan = struct {
     fn decodeDCCoefficient(reader: *HuffmanReader, prediction: *i12) ImageReadError!i12 {
         const maybe_magnitude = try reader.readCode();
         if (maybe_magnitude > 11) return ImageReadError.InvalidData;
-        const magnitude = @intCast(u4, maybe_magnitude);
+        const magnitude = @as(u4, @intCast(maybe_magnitude));
 
-        const diff = @intCast(i12, try reader.readMagnitudeCoded(magnitude));
+        const diff = @as(i12, @intCast(try reader.readMagnitudeCoded(magnitude)));
         const dc_coefficient = diff + prediction.*;
         prediction.* = dc_coefficient;
 
@@ -668,9 +668,9 @@ const Scan = struct {
 
             const maybe_magnitude = zero_run_length_and_magnitude & 0xF;
             if (maybe_magnitude > 10) return ImageReadError.InvalidData;
-            const magnitude = @intCast(u4, maybe_magnitude);
+            const magnitude = @as(u4, @intCast(maybe_magnitude));
 
-            const ac_coefficient = @intCast(i11, try reader.readMagnitudeCoded(magnitude));
+            const ac_coefficient = @as(i11, @intCast(try reader.readMagnitudeCoded(magnitude)));
 
             var i: usize = 0;
             while (i < zero_run_length) : (i += 1) {
@@ -713,10 +713,10 @@ const Frame = struct {
         errdefer self.deinit();
 
         var marker = try reader.readIntBig(u16);
-        while (marker != @enumToInt(Markers.start_of_scan)) : (marker = try reader.readIntBig(u16)) {
+        while (marker != @intFromEnum(Markers.start_of_scan)) : (marker = try reader.readIntBig(u16)) {
             if (JPEG_DEBUG) std.debug.print("Frame: Parsing marker value: 0x{X}\n", .{marker});
 
-            switch (@intToEnum(Markers, marker)) {
+            switch (@as(Markers, @enumFromInt(marker))) {
                 .define_huffman_tables => {
                     try self.parseDefineHuffmanTables(reader);
                 },
@@ -726,7 +726,7 @@ const Frame = struct {
             }
         }
 
-        while (marker == @enumToInt(Markers.start_of_scan)) : (marker = try reader.readIntBig(u16)) {
+        while (marker == @intFromEnum(Markers.start_of_scan)) : (marker = try reader.readIntBig(u16)) {
             try self.parseScan(reader);
         }
 
@@ -783,7 +783,7 @@ const Frame = struct {
             if (JPEG_DEBUG) std.debug.print("  Table with class {} installed at {}\n", .{ table_class, table_destination });
 
             // Class+Destination + code counts + code table
-            segment_size -= 1 + 16 + @intCast(u16, huffman_table.code_map.count());
+            segment_size -= 1 + 16 + @as(u16, @intCast(huffman_table.code_map.count()));
         }
     }
 
@@ -800,7 +800,7 @@ const Frame = struct {
     fn dequantize(self: *Frame) !void {
         var mcu_id: usize = 0;
         while (mcu_id < self.mcu_storage.len) : (mcu_id += 1) {
-            for (self.frame_header.components) |component, component_id| {
+            for (self.frame_header.components, 0..) |component, component_id| {
                 const mcu = &self.mcu_storage[mcu_id][component_id];
 
                 if (self.quantization_tables[component.quantization_table_id]) |quantization_table| {
@@ -844,13 +844,13 @@ const Frame = struct {
             while (y < 8) : (y += 1) {
                 var x: u4 = 0;
                 while (x < 8) : (x += 1) {
-                    const reconstructed_Y = idct(mcu_Y, @intCast(u3, x), @intCast(u3, y), mcu_id, 0);
-                    const reconstructed_Cb = idct(mcu_Cb, @intCast(u3, x), @intCast(u3, y), mcu_id, 1);
-                    const reconstructed_Cr = idct(mcu_Cr, @intCast(u3, x), @intCast(u3, y), mcu_id, 2);
+                    const reconstructed_Y = idct(mcu_Y, @as(u3, @intCast(x)), @as(u3, @intCast(y)), mcu_id, 0);
+                    const reconstructed_Cb = idct(mcu_Cb, @as(u3, @intCast(x)), @as(u3, @intCast(y)), mcu_id, 1);
+                    const reconstructed_Cr = idct(mcu_Cr, @as(u3, @intCast(x)), @as(u3, @intCast(y)), mcu_id, 2);
 
-                    const Y = @intToFloat(f32, reconstructed_Y);
-                    const Cb = @intToFloat(f32, reconstructed_Cb);
-                    const Cr = @intToFloat(f32, reconstructed_Cr);
+                    const Y = @as(f32, @floatFromInt(reconstructed_Y));
+                    const Cb = @as(f32, @floatFromInt(reconstructed_Cb));
+                    const Cr = @as(f32, @floatFromInt(reconstructed_Cr));
 
                     const Co_red = 0.299;
                     const Co_green = 0.587;
@@ -861,9 +861,9 @@ const Frame = struct {
                     const g = (Y - Co_blue * b - Co_red * r) / Co_green;
 
                     pixels[(((block_y * 8) + y) * width) + (block_x * 8) + x] = .{
-                        .r = @floatToInt(u8, std.math.clamp(r + 128.0, 0.0, 255.0)),
-                        .g = @floatToInt(u8, std.math.clamp(g + 128.0, 0.0, 255.0)),
-                        .b = @floatToInt(u8, std.math.clamp(b + 128.0, 0.0, 255.0)),
+                        .r = @as(u8, @intFromFloat(std.math.clamp(r + 128.0, 0.0, 255.0))),
+                        .g = @as(u8, @intFromFloat(std.math.clamp(g + 128.0, 0.0, 255.0))),
+                        .b = @as(u8, @intFromFloat(std.math.clamp(b + 128.0, 0.0, 255.0))),
                     };
                 }
             }
@@ -878,7 +878,7 @@ const Frame = struct {
             var v: usize = 0;
             while (v < 8) : (v += 1) {
                 const mcu_value = mcu[v * 8 + u];
-                reconstructed_pixel += IDCTMultipliers[y][x][u][v] * @intToFloat(f32, mcu_value);
+                reconstructed_pixel += IDCTMultipliers[y][x][u][v] * @as(f32, @floatFromInt(mcu_value));
             }
         }
 
@@ -889,7 +889,7 @@ const Frame = struct {
             }
         }
 
-        return @floatToInt(i8, std.math.clamp(scaled_pixel, -128.0, 127.0));
+        return @as(i8, @intFromFloat(std.math.clamp(scaled_pixel, -128.0, 127.0)));
     }
 };
 
@@ -941,7 +941,7 @@ pub const JPEG = struct {
                 else => unreachable,
             }
 
-            const pixel_count = @intCast(usize, frame.frame_header.samples_per_row) * @intCast(usize, frame.frame_header.row_count);
+            const pixel_count = @as(usize, @intCast(frame.frame_header.samples_per_row)) * @as(usize, @intCast(frame.frame_header.row_count));
             pixels_opt.* = try color.PixelStorage.init(self.allocator, pixel_format, pixel_count);
         } else return ImageReadError.InvalidData;
     }
@@ -962,17 +962,17 @@ pub const JPEG = struct {
 
         const reader = stream.reader();
         var marker = try reader.readIntBig(u16);
-        while (marker != @enumToInt(Markers.end_of_image)) : (marker = try reader.readIntBig(u16)) {
+        while (marker != @intFromEnum(Markers.end_of_image)) : (marker = try reader.readIntBig(u16)) {
             if (JPEG_DEBUG) std.debug.print("Parsing marker value: 0x{X}\n", .{marker});
 
-            if (marker >= @enumToInt(Markers.application0) and marker < @enumToInt(Markers.application0) + 16) {
+            if (marker >= @intFromEnum(Markers.application0) and marker < @intFromEnum(Markers.application0) + 16) {
                 if (JPEG_DEBUG) std.debug.print("Skipping application data segment\n", .{});
                 const application_data_length = try reader.readIntBig(u16);
                 try stream.seekBy(application_data_length - 2);
                 continue;
             }
 
-            switch (@intToEnum(Markers, marker)) {
+            switch (@as(Markers, @enumFromInt(marker))) {
                 .sof0 => {
                     if (self.frame != null) {
                         return ImageError.Unsupported;
@@ -1033,7 +1033,7 @@ pub const JPEG = struct {
     fn formatDetect(stream: *Image.Stream) ImageReadError!bool {
         const reader = stream.reader();
         const maybe_start_of_image = try reader.readIntBig(u16);
-        if (maybe_start_of_image != @enumToInt(Markers.start_of_image)) {
+        if (maybe_start_of_image != @intFromEnum(Markers.start_of_image)) {
             return false;
         }
 

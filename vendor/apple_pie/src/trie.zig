@@ -137,7 +137,7 @@ pub fn Trie(comptime T: type) type {
                         }
                         if (child.label == .param) {
                             params[param_count] = .{ .key = child.path[1..], .value = component };
-                            param_count += @boolToInt(param_count < max_params);
+                            param_count += @intFromBool(param_count < max_params);
                         }
                         current = child;
                         continue :loop;

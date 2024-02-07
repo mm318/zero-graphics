@@ -12,14 +12,12 @@ fn sdkPath(comptime suffix: []const u8) []const u8 {
 const Sdk = @This();
 
 const SdlSdk = @import("vendor/SDL.zig/Sdk.zig");
-const AndroidSdk = @import("vendor/ZigAndroidTemplate/Sdk.zig");
 const TemplateStep = @import("vendor/ztt/src/TemplateStep.zig");
 const NFD = @import("vendor/nfd/build.zig");
 
 pub const Platform = union(enum) {
     desktop: std.zig.CrossTarget,
     web,
-    android,
 };
 
 fn requiresSingleThreaded(target: std.zig.CrossTarget) bool {
@@ -54,51 +52,32 @@ const pkgs = struct {
 
 const web_folder = std.build.InstallDir{ .custom = "www" };
 
-builder: *std.build.Builder,
+builder: *std.Build,
 sdl_sdk: *SdlSdk,
-android_sdk: ?*AndroidSdk,
-key_store: ?AndroidSdk.KeyStore,
-make_keystore_step: ?*std.build.Step,
 
-dummy_server: *std.build.LibExeObjStep,
+dummy_server: *std.Build.Step.Compile,
 
-install_web_sources: []*std.build.InstallFileStep,
+install_web_sources: []*std.Build.Step.InstallFile,
 
-render_main_page_tool: *std.build.LibExeObjStep,
+render_main_page_tool: *std.Build.Step.Compile,
 
-pub fn init(builder: *std.build.Builder, init_android: bool) *Sdk {
+pub fn init(builder: *std.Build) *Sdk {
     const sdk = builder.allocator.create(Sdk) catch @panic("out of memory");
     sdk.* = Sdk{
         .builder = builder,
         .sdl_sdk = SdlSdk.init(builder),
-        .android_sdk = if (init_android)
-            AndroidSdk.init(builder, null, .{})
-        else
-            null,
-        .key_store = null,
-        .make_keystore_step = null,
-        .install_web_sources = builder.allocator.dupe(*std.build.InstallFileStep, &[_]*std.build.InstallFileStep{
+        .install_web_sources = builder.allocator.dupe(*std.Build.Step.InstallFile, &[_]*std.Build.Step.InstallFile{
             builder.addInstallFileWithDir(.{ .path = sdkPath("/www/zero-graphics.js") }, web_folder, "zero-graphics.js"),
         }) catch @panic("out of memory"),
-        .render_main_page_tool = builder.addExecutable("render-html-page", sdkPath("/tools/render-ztt-page.zig")),
-
+        .render_main_page_tool = builder.addExecutable(.{
+            .name = "render-html-page",
+            .root_source_file = .{ .path = sdkPath("/tools/render-ztt-page.zig") },
+        }),
         .dummy_server = undefined,
     };
 
-    sdk.render_main_page_tool.addPackage(.{
-        .name = "html",
-        .source = TemplateStep.transform(builder, sdkPath("/www/application.ztt")),
-    });
-
-    if (sdk.android_sdk) |asdk| {
-        sdk.key_store = AndroidSdk.KeyStore{
-            .file = ".build_config/android.keystore",
-            .alias = "android-app",
-            .password = "Ziguana",
-        };
-
-        sdk.make_keystore_step = asdk.initKeystore(sdk.key_store.?, .{});
-    }
+    const html_module = builder.addModule("html", .{ .source_file = TemplateStep.transform(builder, sdkPath("/www/application.ztt")) });
+    sdk.render_main_page_tool.addModule("html", html_module);
 
     sdk.dummy_server = builder.addExecutable("http-server", sdkPath("/tools/http-server.zig"));
     sdk.dummy_server.addPackage(std.build.Pkg{
@@ -109,10 +88,6 @@ pub fn init(builder: *std.build.Builder, init_android: bool) *Sdk {
     return sdk;
 }
 
-pub fn initializeKeystore(sdk: *Sdk) *std.build.Step {
-    return sdk.make_keystore_step orelse @panic("Android supported must be enabled to use this!");
-}
-
 pub fn standardPlatformOptions(sdk: *Sdk) Platform {
     const platform_tag = sdk.builder.option(std.meta.Tag(Platform), "platform", "The platform to build for") orelse .desktop;
     return switch (platform_tag) {
@@ -120,7 +95,6 @@ pub fn standardPlatformOptions(sdk: *Sdk) Platform {
             .desktop = sdk.builder.standardTargetOptions(.{}),
         },
         .web => .web,
-        .android => .android,
     };
 }
 
@@ -166,7 +140,6 @@ pub fn createApplicationSource(sdk: *Sdk, name: []const u8, root_file: std.build
             .name = "application-meta",
             .source = std.build.FileSource{ .generated = &create_meta_step.outfile },
         },
-        .permissions = std.ArrayList([]const u8).init(sdk.builder.allocator),
     };
     app.addPackage(zero_graphics_pkg);
 
@@ -183,8 +156,6 @@ pub const InitialResolution = union(enum) {
     windowed: Size,
 };
 
-pub const Permission = AndroidSdk.Permission;
-
 pub const Features = struct {
     code_editor: bool,
     file_dialogs: bool,
@@ -192,19 +163,16 @@ pub const Features = struct {
 
 pub const Application = struct {
     sdk: *Sdk,
-    packages: std.ArrayList(std.build.Pkg),
+    packages: std.ArrayList(std.Build.Module),
     root_file: std.build.FileSource,
     build_mode: std.builtin.Mode = .Debug,
-    meta_pkg: std.build.Pkg,
+    meta_pkg: std.Build.Module,
 
     name: []const u8,
     display_name: ?[]const u8 = null,
     package_name: ?[]const u8 = null,
     icon: ?[]const u8 = null,
     resolution: InitialResolution = .{ .windowed = Size{ .width = 1280, .height = 720 } },
-
-    permissions: std.ArrayList([]const u8),
-    android_targets: AndroidSdk.AppTargetConfig = .{},
 
     /// Set of features not necessarily present on every platform.
     /// Enable/disable these features to increase/decrease project size.
@@ -213,11 +181,7 @@ pub const Application = struct {
         .file_dialogs = false, // not supported by default atm
     },
 
-    pub fn addPermission(app: *Application, perm: Permission) void {
-        app.permissions.append(perm.toString()) catch @panic("out of memory!");
-    }
-
-    pub fn addPackage(app: *Application, pkg: std.build.Pkg) void {
+    pub fn addPackage(app: *Application, pkg: std.Build.Module) void {
         app.packages.append(app.sdk.builder.dupePkg(pkg)) catch @panic("out of memory!");
     }
 
@@ -249,7 +213,7 @@ pub const Application = struct {
         app.resolution = resolution;
     }
 
-    fn prepareExe(app: *Application, exe: *std.build.LibExeObjStep, app_pkg: std.build.Pkg, features: Features, platform: Platform) void {
+    fn prepareExe(app: *Application, exe: *std.Build.Step.Compile, app_pkg: std.build.Pkg, features: Features, platform: Platform) void {
         exe.main_pkg_path = sdkPath("/src");
 
         exe.addPackage(app_pkg);
@@ -310,11 +274,11 @@ pub const Application = struct {
                 .file_dialogs = app.features.file_dialogs,
             };
 
-            if (features.code_editor and (platform == .web or platform == .android)) {
+            if (features.code_editor and platform == .web) {
                 features.code_editor = false;
                 logger.warn("Disabling unsupported feature 'code_editor' for platform {s}", .{@tagName(platform)});
             }
-            if (features.file_dialogs and (platform == .web or platform == .android)) {
+            if (features.file_dialogs and platform == .web) {
                 features.file_dialogs = false;
                 logger.warn("Disabling unsupported feature 'file_dialogs' for platform {s}", .{@tagName(platform)});
             }
@@ -383,41 +347,6 @@ pub const Application = struct {
                     .web = exe,
                 });
             },
-            .android => {
-                const icon =
-                    if (app.icon) |str|
-                    app.sdk.builder.pathFromRoot(str)
-                else
-                    sdkPath("/design/app-icon.png");
-                const asdk = app.sdk.android_sdk orelse @panic("Android build support is disabled!");
-                const android_app = asdk.createApp(
-                    app.sdk.builder.getInstallPath(.bin, app.sdk.builder.fmt("{s}.apk", .{app.name})), // apk_file: []const u8,
-                    sdkPath("/src/main/android.zig"), // src_file: []const u8,
-                    AndroidSdk.AppConfig{
-                        .display_name = app.display_name orelse @panic("Display name is required for Android!"),
-                        .app_name = app.name,
-                        .package_name = app.package_name orelse @panic("Package name is required for Android"),
-                        .resources = &[_]AndroidSdk.Resource{
-                            .{ .path = "mipmap/icon.png", .content = .{ .path = icon } },
-                        },
-                        .permissions = app.permissions.items,
-                        .fullscreen = true,
-                    }, // app_config: AppConfig,
-                    app.build_mode, // mode: std.builtin.Mode,
-                    app.android_targets, // targets: AppTargetConfig,
-                    app.sdk.key_store.?, // key_store: KeyStore,
-                );
-
-                for (android_app.libraries) |lib| {
-                    app.prepareExe(lib, app_pkg, features, platform);
-                    lib.addPackage(build_options);
-                    lib.addPackage(android_app.getAndroidPackage("android"));
-                }
-
-                return app.createCompilation(.{
-                    .android = android_app,
-                });
-            },
         }
     }
 
@@ -434,9 +363,8 @@ pub const Application = struct {
 
 pub const AppCompilation = struct {
     const Data = union(enum) {
-        desktop: *std.build.LibExeObjStep,
-        web: *std.build.LibExeObjStep,
-        android: AndroidSdk.CreateAppStep,
+        desktop: *std.Build.Step.Compile,
+        web: *std.Build.Step.Compile,
     };
 
     sdk: *Sdk,
@@ -448,7 +376,6 @@ pub const AppCompilation = struct {
         return switch (comp.data) {
             .desktop => |step| &step.step,
             .web => |step| &step.step,
-            .android => |android| android.final_step,
         };
     }
 
@@ -483,10 +410,6 @@ pub const AppCompilation = struct {
 
                 comp.install_step = &install_step.step;
             },
-            .android => |step| {
-                comp.sdk.builder.getInstallStep().dependOn(step.final_step);
-                comp.install_step = step.final_step;
-            },
         }
     }
 
@@ -502,7 +425,6 @@ pub const AppCompilation = struct {
                 serve.cwd = comp.sdk.builder.getInstallPath(.{ .custom = "www" }, "");
                 break :blk serve;
             },
-            .android => @panic("Android cannot be run yet!"),
         };
     }
 };
@@ -607,11 +529,11 @@ const CreateApplicationHtmlPageStep = struct {
 const CacheBuilder = struct {
     const Self = @This();
 
-    builder: *std.build.Builder,
+    builder: *std.Build,
     hasher: std.crypto.hash.Sha1,
     subdir: ?[]const u8,
 
-    pub fn init(builder: *std.build.Builder, subdir: ?[]const u8) Self {
+    pub fn init(builder: *std.Build, subdir: ?[]const u8) Self {
         return Self{
             .builder = builder,
             .hasher = std.crypto.hash.Sha1.init(.{}),
@@ -693,7 +615,7 @@ const CacheBuilder = struct {
     }
 };
 
-fn createScintilla(b: *std.build.Builder) *std.build.LibExeObjStep {
+fn createScintilla(b: *std.Build) *std.Build.Step.Compile {
     const lib = b.addStaticLibrary("scintilla", null);
     lib.setBuildMode(.ReleaseSafe);
     lib.addCSourceFiles(&scintilla_sources, &scintilla_flags);

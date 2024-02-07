@@ -115,16 +115,16 @@ pub fn render(self: Self, viewProjectionMatrix: Mat4) void {
     gl.disable(gl.BLEND);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, self.vertex_buffer.instance.?);
-    gl.bufferData(gl.ARRAY_BUFFER, @intCast(gl.GLsizeiptr, @sizeOf(Vertex) * self.vertices.items.len), self.vertices.items.ptr, gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, @as(gl.GLsizeiptr, @intCast(@sizeOf(Vertex) * self.vertices.items.len)), self.vertices.items.ptr, gl.STATIC_DRAW);
 
-    gl.vertexAttribPointer(types.ResourceManager.Geometry.attributes.vPosition, 3, gl.FLOAT, gl.FALSE, @sizeOf(Vertex), @intToPtr(?*const anyopaque, @offsetOf(Vertex, "x")));
-    gl.vertexAttribPointer(types.ResourceManager.Geometry.attributes.vNormal, 3, gl.FLOAT, gl.TRUE, @sizeOf(Vertex), @intToPtr(?*const anyopaque, @offsetOf(Vertex, "nx")));
-    gl.vertexAttribPointer(types.ResourceManager.Geometry.attributes.vUV, 2, gl.FLOAT, gl.FALSE, @sizeOf(Vertex), @intToPtr(?*const anyopaque, @offsetOf(Vertex, "u")));
+    gl.vertexAttribPointer(types.ResourceManager.Geometry.attributes.vPosition, 3, gl.FLOAT, gl.FALSE, @sizeOf(Vertex), @as(?*const anyopaque, @ptrFromInt(@offsetOf(Vertex, "x"))));
+    gl.vertexAttribPointer(types.ResourceManager.Geometry.attributes.vNormal, 3, gl.FLOAT, gl.TRUE, @sizeOf(Vertex), @as(?*const anyopaque, @ptrFromInt(@offsetOf(Vertex, "nx"))));
+    gl.vertexAttribPointer(types.ResourceManager.Geometry.attributes.vUV, 2, gl.FLOAT, gl.FALSE, @sizeOf(Vertex), @as(?*const anyopaque, @ptrFromInt(@offsetOf(Vertex, "u"))));
 
     var uniforms = glesh.fetchUniforms(self.shader_program.instance.?, Uniforms);
 
     gl.useProgram(self.shader_program.instance.?);
-    gl.uniformMatrix4fv(uniforms.uViewProjMatrix, 1, gl.FALSE, @ptrCast([*]const f32, &viewProjectionMatrix));
+    gl.uniformMatrix4fv(uniforms.uViewProjMatrix, 1, gl.FALSE, @as([*]const f32, @ptrCast(&viewProjectionMatrix)));
 
     gl.enable(gl.POLYGON_OFFSET_FILL);
     defer gl.disable(gl.POLYGON_OFFSET_FILL);
@@ -134,8 +134,8 @@ pub fn render(self: Self, viewProjectionMatrix: Mat4) void {
     for (self.draw_calls.items) |draw_call| {
         gl.drawArrays(
             draw_call.primitive_type,
-            @intCast(gl.GLsizei, draw_call.offset),
-            @intCast(gl.GLsizei, draw_call.count),
+            @as(gl.GLsizei, @intCast(draw_call.offset)),
+            @as(gl.GLsizei, @intCast(draw_call.count)),
         );
     }
 }
@@ -145,11 +145,11 @@ fn vertex(pos: Vec3, color: Color) Vertex {
         .x = pos[0],
         .y = pos[1],
         .z = pos[2],
-        .u = @intToFloat(f32, color.a) / 255.0,
+        .u = @as(f32, @floatFromInt(color.a)) / 255.0,
         .v = 0,
-        .nx = @intToFloat(f32, color.r) / 255.0,
-        .ny = @intToFloat(f32, color.g) / 255.0,
-        .nz = @intToFloat(f32, color.b) / 255.0,
+        .nx = @as(f32, @floatFromInt(color.r)) / 255.0,
+        .ny = @as(f32, @floatFromInt(color.g)) / 255.0,
+        .nz = @as(f32, @floatFromInt(color.b)) / 255.0,
     };
 }
 

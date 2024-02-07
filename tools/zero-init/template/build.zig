@@ -2,9 +2,7 @@ const std = @import("std");
 const Sdk = @import("vendor/zero-graphics/Sdk.zig");
 
 pub fn build(b: *std.build.Builder) !void {
-    const enable_android = b.option(bool, "enable-android", "Enables android build support. Requires the android sdk and ndk to be installed.") orelse false;
-
-    const sdk = Sdk.init(b, enable_android);
+    const sdk = Sdk.init(b);
 
     const mode = b.standardReleaseOptions();
     const platform = sdk.standardPlatformOptions();
@@ -32,23 +30,5 @@ pub fn build(b: *std.build.Builder) !void {
     {
         const wasm_build = app.compileFor(.web);
         wasm_build.install();
-    }
-
-    if (enable_android) {
-        const android_build = app.compileFor(.android);
-        android_build.install();
-
-        b.step("init-keystore", "Initializes a fresh debug keystore.").dependOn(sdk.initializeKeystore());
-
-        const push = android_build.data.android.install();
-
-        const run = android_build.data.android.run();
-        run.dependOn(push);
-
-        const push_step = b.step("install-app", "Push the app to the default ADB target");
-        push_step.dependOn(push);
-
-        const run_step = b.step("run-app", "Runs the Android app on the default ADB target");
-        run_step.dependOn(run);
     }
 }

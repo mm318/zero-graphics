@@ -67,7 +67,7 @@ pub const Theme = struct {
 
     fn rgba(comptime str: *const [6]u8, alpha: f32) Color {
         var color = rgb(str);
-        color.a = @floatToInt(u8, 255.0 * alpha);
+        color.a = @as(u8, @intFromFloat(255.0 * alpha));
         return color;
     }
 
@@ -644,7 +644,7 @@ fn findOrAllocWidget(self: *UserInterface, widget_type: ControlType, id: WidgetI
 /// Returns a unqiue identifier for each type.
 fn typeId(comptime T: type) usize {
     _ = T;
-    return comptime @ptrToInt(&struct {
+    return comptime @intFromPtr(&struct {
         var i: u8 = 0;
     }.i);
 }
@@ -658,7 +658,7 @@ fn widgetId(config: anytype) WidgetID {
     if (@hasField(Config, "id"))
         hash.update(std.mem.asBytes(&config.id));
 
-    return @intToEnum(WidgetID, hash.final());
+    return @as(WidgetID, @enumFromInt(hash.final()));
 }
 
 fn updateWidgetConfig(dst_config: anytype, src_config: anytype) void {
@@ -1041,7 +1041,7 @@ pub const InputProcessor = struct {
                 .code_editor => |*control| {
                     if (has_code_editor) {
                         control.editor.mouseDown(
-                            @intToFloat(f32, types.milliTimestamp()) / 1000.0,
+                            @as(f32, @floatFromInt(types.milliTimestamp())) / 1000.0,
                             self.ui.pointer_position.x,
                             self.ui.pointer_position.y,
                         );
@@ -1075,7 +1075,7 @@ pub const InputProcessor = struct {
                 .code_editor => |*control| {
                     if (has_code_editor) {
                         control.editor.mouseUp(
-                            @intToFloat(f32, types.milliTimestamp()) / 1000.0,
+                            @as(f32, @floatFromInt(types.milliTimestamp())) / 1000.0,
                             self.ui.pointer_position.x,
                             self.ui.pointer_position.y,
                         );
@@ -1236,13 +1236,13 @@ pub const InputProcessor = struct {
 
         pub fn inputFilter(self: *InputFilter) types.Input.Filter {
             return types.Input.Filter{
-                .context = @ptrCast(*anyopaque, self),
+                .context = @as(*anyopaque, @ptrCast(self)),
                 .fetchFn = fetchFunc,
             };
         }
 
         fn fetchFunc(ctx: *anyopaque) error{OutOfMemory}!?types.Input.Event {
-            const filter = @ptrCast(*InputFilter, @alignCast(@alignOf(InputFilter), ctx));
+            const filter = @as(*InputFilter, @ptrCast(@alignCast(@alignOf(InputFilter), ctx)));
             while (try filter.source.fetch()) |event| {
                 switch (event) {
                     .pointer_motion => |pt| filter.target.setPointer(pt),
@@ -1720,6 +1720,6 @@ const StringHash = enum(u32) {
     _,
 
     pub fn compute(string: []const u8) StringHash {
-        return @intToEnum(StringHash, std.hash.CityHash32.hash(string));
+        return @as(StringHash, @enumFromInt(std.hash.CityHash32.hash(string)));
     }
 };

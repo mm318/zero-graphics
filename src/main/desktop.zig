@@ -195,8 +195,8 @@ pub fn main() !void {
         c.SDL_GetWindowSize(window, &virtual_width, &virtual_height);
         logger.info("Virtual resolution: {}×{}", .{ virtual_width, virtual_height });
 
-        const scale_x = @intToFloat(f32, drawbable_width) / @intToFloat(f32, virtual_width);
-        const scale_y = @intToFloat(f32, drawbable_height) / @intToFloat(f32, virtual_height);
+        const scale_x = @as(f32, @floatFromInt(drawbable_width)) / @as(f32, @floatFromInt(virtual_width));
+        const scale_y = @as(f32, @floatFromInt(drawbable_height)) / @as(f32, @floatFromInt(virtual_height));
         std.debug.assert(std.math.approxEqAbs(f32, scale_x, scale_y, 1e-3)); // assert uniform
         break :blk scale_x;
     };
@@ -215,7 +215,7 @@ pub fn main() !void {
         var height: c_int = undefined;
 
         c.SDL_GL_GetDrawableSize(window, &width, &height);
-        try app.resize(@intCast(u15, width), @intCast(u15, height));
+        try app.resize(@as(u15, @intCast(width)), @as(u15, @intCast(height)));
     }
 
     while (true) {
@@ -227,8 +227,8 @@ pub fn main() !void {
                 },
                 c.SDL_MOUSEMOTION => {
                     try input_queue.pushEvent(.{ .pointer_motion = .{
-                        .x = @floatToInt(i16, dpi_scale * @intToFloat(f32, event.motion.x)),
-                        .y = @floatToInt(i16, dpi_scale * @intToFloat(f32, event.motion.y)),
+                        .x = @as(i16, @intFromFloat(dpi_scale * @as(f32, @floatFromInt(event.motion.x)))),
+                        .y = @as(i16, @intFromFloat(dpi_scale * @as(f32, @floatFromInt(event.motion.y)))),
                     } });
                 },
                 c.SDL_MOUSEBUTTONDOWN => {
@@ -282,7 +282,7 @@ pub fn main() !void {
                         var height: c_int = undefined;
 
                         c.SDL_GL_GetDrawableSize(window, &width, &height);
-                        app.resize(@intCast(u15, width), @intCast(u15, height)) catch |e| return logAppError("resize", @errorReturnTrace(), e);
+                        app.resize(@as(u15, @intCast(width)), @as(u15, @intCast(height))) catch |e| return logAppError("resize", @errorReturnTrace(), e);
                     } else {
                         // logger.info("unhandled window event: {}", .{@intToEnum(c.SDL_WindowEventID, event.window.event)});
                     }

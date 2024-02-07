@@ -131,7 +131,7 @@ pub fn SpecializeOn(comptime Real: type) type {
                     var result: T = undefined;
 
                     if (components.len > 1) {
-                        inline for (components) |_, i| {
+                        inline for (components, 0..) |_, i| {
                             const slice = components[i .. i + 1];
                             const temp = if (comptime std.mem.eql(u8, slice, "0"))
                                 0
@@ -551,7 +551,7 @@ pub fn SpecializeOn(comptime Real: type) type {
             /// `aspect` is the screen aspect ratio (width / height)
             /// `near` is the distance of the near clip plane, whereas `far` is the distance to the far clip plane.
             pub fn createPerspective(fov: Real, aspect: Real, near: Real, far: Real) Self {
-                std.debug.assert(@fabs(aspect - 0.001) > 0);
+                std.debug.assert(@abs(aspect - 0.001) > 0);
 
                 const tanHalfFovy = @tan(fov / 2);
 
@@ -655,7 +655,7 @@ pub fn SpecializeOn(comptime Real: type) type {
             /// only works on float matrices
             pub fn invert(src: Self) ?Self {
                 // https://github.com/stackgl/gl-mat4/blob/master/invert.js
-                const a = @bitCast([16]Real, src.fields);
+                const a = @as([16]Real, @bitCast(src.fields));
 
                 const a00 = a[0];
                 const a01 = a[1];
@@ -714,7 +714,7 @@ pub fn SpecializeOn(comptime Real: type) type {
                     (a20 * b03 - a21 * b01 + a22 * b00) * det, // 15
                 };
                 return Self{
-                    .fields = @bitCast([4][4]Real, out),
+                    .fields = @as([4][4]Real, @bitCast(out)),
                 };
             }
         };

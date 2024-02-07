@@ -143,7 +143,7 @@ pub fn render(self: Self, sky_cube: *types.ResourceManager.EnvironmentMap, viewP
 
     gles.useProgram(self.static_geometry_shader.instance.?);
     gles.uniform1i(uniforms.uTexture, 0);
-    gles.uniformMatrix4fv(uniforms.uViewProjMatrix, 1, gles.FALSE, @ptrCast([*]const f32, &untranslated_trafo));
+    gles.uniformMatrix4fv(uniforms.uViewProjMatrix, 1, gles.FALSE, @as([*]const f32, @ptrCast(&untranslated_trafo)));
 
     gles.activeTexture(gles.TEXTURE0);
 
@@ -155,9 +155,9 @@ pub fn render(self: Self, sky_cube: *types.ResourceManager.EnvironmentMap, viewP
     for (self.sky_cube.meshes) |mesh| {
         gles.drawElements(
             gles.TRIANGLES,
-            @intCast(gles.GLsizei, mesh.count),
+            @as(gles.GLsizei, @intCast(mesh.count)),
             gles.UNSIGNED_SHORT,
-            @intToPtr(?*const anyopaque, @sizeOf(u16) * mesh.offset),
+            @as(?*const anyopaque, @ptrFromInt(@sizeOf(u16) * mesh.offset)),
         );
     }
 }

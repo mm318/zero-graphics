@@ -3,24 +3,25 @@ const std = @import("std");
 const Sdk = @import("Sdk.zig");
 const Assimp = @import("vendor/zig-assimp/Sdk.zig");
 
-pub fn build(b: *std.build.Builder) !void {
-    const enable_android = b.option(bool, "enable-android", "Enables android build support. Requires the android sdk and ndk to be installed.") orelse false;
-
+pub fn build(b: *std.Build) !void {
     const app_only_step = b.step("app", "Builds only the desktop application");
 
-    const sdk = Sdk.init(b, enable_android);
+    const sdk = Sdk.init(b);
     const assimp = Assimp.init(b);
 
-    const mode = b.standardReleaseOptions();
+    const target = b.standardTargetOptions(.{});
+    const mode = b.standardOptimizeOption(.{});
     const platform = sdk.standardPlatformOptions();
 
+    const arg_module = b.addModule("args", .{ .source_file = .{ .path = "vendor/args/args.zig" } });
+
     {
-        const zero_init = b.addExecutable("zero-init", "tools/zero-init/main.zig");
-        zero_init.addPackage(std.build.Pkg{
-            .name = "args",
-            .source = .{ .path = "vendor/args/args.zig" },
+        const zero_init = b.addExecutable(.{
+            .name = "zero-init",
+            .root_source_file = .{ .path = "tools/zero-init/main.zig" },
         });
-        zero_init.install();
+        zero_init.addModule("args", arg_module);
+        b.installArtifact(zero_init);
     }
 
     // compile the zero-init example so can be sure that it actually compiles!
@@ -32,36 +33,26 @@ pub fn build(b: *std.build.Builder) !void {
 
         b.getInstallStep().dependOn(app.compileFor(platform).getStep());
         b.getInstallStep().dependOn(app.compileFor(.web).getStep());
-        if (enable_android) {
-            b.getInstallStep().dependOn(app.compileFor(.android).getStep());
-        }
     }
 
     {
-        const converter_api = b.addTranslateC(.{ .path = "tools/zero-convert/api.h" });
+        const converter_api = b.addTranslateC(.{ .source_file = .{ .path = "tools/zero-convert/api.h" }, .target = target, .optimize = mode });
+        const api_module = b.addModule("api", .{ .source_file = converter_api.getOutput() });
+        const z3d_module = b.addModule("z3d", .{ .source_file = .{ .path = "src/rendering/z3d-format.zig" } });
 
-        const converter = b.addExecutable("zero-convert", "tools/zero-convert/main.zig");
-        converter.addCSourceFile("tools/zero-convert/converter.cpp", &[_][]const u8{
+        const converter = b.addExecutable(.{ .name = "zero-convert", .root_source_file = .{ .path = "tools/zero-convert/main.zig" } });
+        converter.addCSourceFile(.{ .file = .{ .path = "tools/zero-convert/converter.cpp" }, .flags = &[_][]const u8{
             "-std=c++17",
             "-Wall",
             "-Wextra",
-        });
-        converter.addPackage(std.build.Pkg{
-            .name = "api",
-            .source = .{ .generated = &converter_api.output_file },
-        });
-        converter.addPackage(std.build.Pkg{
-            .name = "z3d",
-            .source = .{ .path = "src/rendering/z3d-format.zig" },
-        });
-        converter.addPackage(std.build.Pkg{
-            .name = "args",
-            .source = .{ .path = "vendor/args/args.zig" },
-        });
+        } });
+        converter.addModule("api", api_module);
+        converter.addModule("z3d", z3d_module);
+        converter.addModule("args", arg_module);
         converter.linkLibC();
         converter.linkLibCpp();
         assimp.addTo(converter, .static, Assimp.FormatSet.default);
-        converter.install();
+        b.installArtifact(converter);
     }
 
     const app = sdk.createApplication("demo_application", "examples/features/feature-demo.zig");
@@ -102,24 +93,6 @@ pub fn build(b: *std.build.Builder) !void {
 
         const run_step = b.step("run-wasm", "Serves the wasm app");
         run_step.dependOn(&serve.step);
-    }
-
-    if (enable_android) {
-        const android_build = app.compileFor(.android);
-        android_build.install();
-
-        b.step("init-keystore", "Initializes a fresh debug keystore.").dependOn(sdk.initializeKeystore());
-
-        const push = android_build.data.android.install();
-
-        const run = android_build.data.android.run();
-        run.dependOn(push);
-
-        const push_step = b.step("install-app", "Push the app to the default ADB target");
-        push_step.dependOn(push);
-
-        const run_step = b.step("run-app", "Runs the Android app on the default ADB target");
-        run_step.dependOn(run);
     }
 
     {

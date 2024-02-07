@@ -88,9 +88,9 @@ const GetGizmoResult = struct {
 fn makeTagValue(value: anytype) usize {
     const T = @TypeOf(value);
     return switch (@typeInfo(T)) {
-        .Pointer => @ptrToInt(value),
+        .Pointer => @intFromPtr(value),
         .Int => |int| if (int.signedness == .signed)
-            @bitCast(usize, @as(isize, value))
+            @as(usize, @bitCast(@as(isize, value)))
         else
             @as(usize, value),
 

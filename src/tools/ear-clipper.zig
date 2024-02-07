@@ -134,7 +134,7 @@ pub fn EarClipper(
             const temp_vertices = self.temp_vertices.items;
 
             std.debug.assert(temp_vertices.len >= 3);
-            search_loop: for (temp_vertices) |_, index| {
+            search_loop: for (temp_vertices, 0..) |_, index| {
                 const lo_bounds = index -| 1;
                 const hi_bounds = index + 2;
 

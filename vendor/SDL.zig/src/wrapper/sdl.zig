@@ -15,7 +15,7 @@ pub const Error = error{SdlError};
 const log = std.log.scoped(.sdl2);
 
 fn stringToSlice(ptr: *allowzero const u8) []const u8 {
-    const opt_ptr = @ptrCast(?[*:0]const u8, ptr) orelse return "";
+    const opt_ptr = @as(?[*:0]const u8, @ptrCast(ptr)) orelse return "";
     return std.mem.sliceTo(opt_ptr, 0);
 }
 
@@ -35,10 +35,10 @@ pub const Rectangle = extern struct {
     height: c_int,
 
     fn getSdlPtr(r: *Rectangle) *c.SDL_Rect {
-        return @ptrCast(*c.SDL_Rect, r);
+        return @as(*c.SDL_Rect, @ptrCast(r));
     }
     fn getConstSdlPtr(r: *const Rectangle) *const c.SDL_Rect {
-        return @ptrCast(*const c.SDL_Rect, r);
+        return @as(*const c.SDL_Rect, @ptrCast(r));
     }
 };
 
@@ -49,10 +49,10 @@ pub const RectangleF = extern struct {
     height: f32,
 
     fn getSdlPtr(r: *RectangleF) *c.SDL_FRect {
-        return @ptrCast(*c.SDL_FRect, r);
+        return @as(*c.SDL_FRect, @ptrCast(r));
     }
     fn getConstSdlPtr(r: RectangleF) *const c.SDL_FRect {
-        return @ptrCast(*const c.SDL_FRect, &r);
+        return @as(*const c.SDL_FRect, @ptrCast(&r));
     }
 };
 
@@ -470,9 +470,9 @@ pub fn createWindow(
                 .centered => c.SDL_WINDOWPOS_CENTERED_MASK,
                 .absolute => |v| v,
             },
-            @intCast(c_int, width),
-            @intCast(c_int, height),
-            @intCast(u32, flags.toInteger()),
+            @as(c_int, @intCast(width)),
+            @as(c_int, @intCast(height)),
+            @as(u32, @intCast(flags.toInteger())),
         ) orelse return makeError(),
     };
 }
@@ -501,7 +501,7 @@ pub const Surface = struct {
 };
 
 pub fn loadBmpFromConstMem(data: []const u8) !Surface {
-    const sptr = c.SDL_LoadBMP_RW(c.SDL_RWFromConstMem(data.ptr, @intCast(c_int, data.len)), 1) orelse return makeError();
+    const sptr = c.SDL_LoadBMP_RW(c.SDL_RWFromConstMem(data.ptr, @as(c_int, @intCast(data.len))), 1) orelse return makeError();
     return Surface{
         .ptr = sptr,
     };
@@ -520,7 +520,7 @@ pub fn loadBmp(filename: [:0]const u8) !Surface {
 }
 
 pub fn createRgbSurfaceWithFormat(width: u31, height: u31, format: PixelFormatEnum) !Surface {
-    return Surface{ .ptr = c.SDL_CreateRGBSurfaceWithFormat(undefined, width, height, undefined, @enumToInt(format)) orelse return error.SdlError };
+    return Surface{ .ptr = c.SDL_CreateRGBSurfaceWithFormat(undefined, width, height, undefined, @intFromEnum(format)) orelse return error.SdlError };
 }
 
 pub fn blitScaled(src: Surface, src_rectangle: ?*Rectangle, dest: Surface, dest_rectangle: ?*Rectangle) !void {
@@ -622,10 +622,10 @@ pub const Renderer = struct {
         if (c.SDL_RenderGeometry(
             ren.ptr,
             if (tex) |t| t.ptr else null,
-            @ptrCast([*c]const c.SDL_Vertex, vertices.ptr),
-            @intCast(c_int, vertices.len),
-            if (indices) |idx| @ptrCast([*]const c_int, idx.ptr) else null,
-            if (indices) |idx| @intCast(c_int, idx.len) else 0,
+            @as([*c]const c.SDL_Vertex, @ptrCast(vertices.ptr)),
+            @as(c_int, @intCast(vertices.len)),
+            if (indices) |idx| @as([*]const c_int, @ptrCast(idx.ptr)) else null,
+            if (indices) |idx| @as(c_int, @intCast(idx.len)) else 0,
         ) < 0)
             return makeError();
     }
@@ -656,11 +656,11 @@ pub const Renderer = struct {
         var blend_mode: c.SDL_BlendMode = undefined;
         if (c.SDL_GetRenderDrawBlendMode(ren.ptr, &blend_mode) < 0)
             return makeError();
-        return @intToEnum(BlendMode, blend_mode);
+        return @as(BlendMode, @enumFromInt(blend_mode));
     }
 
     pub fn setDrawBlendMode(ren: Renderer, blend_mode: BlendMode) !void {
-        if (c.SDL_SetRenderDrawBlendMode(ren.ptr, @enumToInt(blend_mode)) < 0)
+        if (c.SDL_SetRenderDrawBlendMode(ren.ptr, @intFromEnum(blend_mode)) < 0)
             return makeError();
     }
 
@@ -731,9 +731,9 @@ pub const Renderer = struct {
         if (c.SDL_RenderReadPixels(
             ren.ptr,
             if (region) |r| r.getSdlPtr() else null,
-            if (format) |f| @enumToInt(f) orelse 0,
+            if (format) |f| @intFromEnum(f) orelse 0,
             pixels,
-            @intCast(c_int, pitch),
+            @as(c_int, @intCast(pitch)),
         ) < 0)
             return makeError();
     }
@@ -759,8 +759,8 @@ pub fn createRenderer(window: Window, index: ?u31, flags: RendererFlags) !Render
     return Renderer{
         .ptr = c.SDL_CreateRenderer(
             window.ptr,
-            if (index) |idx| @intCast(c_int, idx) else -1,
-            @intCast(u32, flags.toInteger()),
+            if (index) |idx| @as(c_int, @intCast(idx)) else -1,
+            @as(u32, @intCast(flags.toInteger())),
         ) orelse return makeError(),
     };
 }
@@ -778,7 +778,7 @@ pub const Texture = struct {
         stride: usize,
 
         pub fn scanline(self: *@This(), y: usize, comptime Pixel: type) [*]Pixel {
-            return @ptrCast([*]Pixel, self.pixels + y * self.stride);
+            return @as([*]Pixel, @ptrCast(self.pixels + y * self.stride));
         }
 
         pub fn release(self: *@This()) void {
@@ -806,8 +806,8 @@ pub const Texture = struct {
         }
         return PixelData{
             .texture = tex.ptr,
-            .stride = @intCast(usize, pitch),
-            .pixels = @ptrCast([*]u8, ptr),
+            .stride = @as(usize, @intCast(pitch)),
+            .pixels = @as([*]u8, @ptrCast(ptr)),
         };
     }
 
@@ -816,7 +816,7 @@ pub const Texture = struct {
             texture.ptr,
             if (rectangle) |rect| rect.getConstSdlPtr() else null,
             pixels.ptr,
-            @intCast(c_int, pitch),
+            @as(c_int, @intCast(pitch)),
         ) != 0)
             return makeError();
     }
@@ -836,10 +836,10 @@ pub const Texture = struct {
         if (c.SDL_QueryTexture(tex.ptr, &format, &access, &w, &h) < 0)
             return makeError();
         return Info{
-            .width = @intCast(usize, w),
-            .height = @intCast(usize, h),
-            .access = @intToEnum(Access, access),
-            .format = @intToEnum(PixelFormatEnum, format),
+            .width = @as(usize, @intCast(w)),
+            .height = @as(usize, @intCast(h)),
+            .access = @as(Access, @enumFromInt(access)),
+            .format = @as(PixelFormatEnum, @enumFromInt(format)),
         };
     }
     pub fn resetColorMod(tex: Texture) !void {
@@ -870,23 +870,23 @@ pub const Texture = struct {
         var blend_mode: c.SDL_BlendMode = undefined;
         if (c.SDL_GetTextureBlendMode(tex.ptr, &blend_mode) < 0)
             return makeError();
-        return @intToEnum(BlendMode, blend_mode);
+        return @as(BlendMode, @enumFromInt(blend_mode));
     }
 
     pub fn setBlendMode(tex: Texture, blend_mode: BlendMode) !void {
-        if (c.SDL_SetTextureBlendMode(tex.ptr, @enumToInt(blend_mode)) < 0)
+        if (c.SDL_SetTextureBlendMode(tex.ptr, @intFromEnum(blend_mode)) < 0)
             return makeError();
     }
 
     pub fn getScaleMode(tex: Texture) !ScaleMode {
         var scale_mode: c.SDL_ScaleMode = undefined;
-        if (c.SDL_GetTextureScaleMode(tex.ptr, @enumToInt(scale_mode)) < 0)
+        if (c.SDL_GetTextureScaleMode(tex.ptr, @intFromEnum(scale_mode)) < 0)
             return makeError();
-        return @intToEnum(ScaleMode, scale_mode);
+        return @as(ScaleMode, @enumFromInt(scale_mode));
     }
 
     pub fn setScaleMode(tex: Texture, scale_mode: ScaleMode) !void {
-        if (c.SDL_SetTextureScaleMode(tex.ptr, @enumToInt(scale_mode)) < 0)
+        if (c.SDL_SetTextureScaleMode(tex.ptr, @intFromEnum(scale_mode)) < 0)
             return makeError();
     }
 
@@ -943,10 +943,10 @@ pub const PixelFormatEnum = enum(u32) {
 pub fn createTexture(renderer: Renderer, format: PixelFormatEnum, access: Texture.Access, width: usize, height: usize) !Texture {
     const texptr = c.SDL_CreateTexture(
         renderer.ptr,
-        @enumToInt(format),
-        @enumToInt(access),
-        @intCast(c_int, width),
-        @intCast(c_int, height),
+        @intFromEnum(format),
+        @intFromEnum(access),
+        @as(c_int, @intCast(width)),
+        @as(c_int, @intCast(height)),
     ) orelse return makeError();
     return Texture{
         .ptr = texptr,
@@ -1014,7 +1014,7 @@ pub const WindowEvent = struct {
         return WindowEvent{
             .timestamp = ev.timestamp,
             .window_id = ev.windowID,
-            .type = switch (@intToEnum(Type, ev.event)) {
+            .type = switch (@as(Type, @enumFromInt(ev.event))) {
                 .shown => Data{ .shown = {} },
                 .hidden => Data{ .hidden = {} },
                 .exposed => Data{ .exposed = {} },
@@ -1067,13 +1067,13 @@ pub const KeyModifierSet = struct {
     }
 
     pub fn get(self: KeyModifierSet, modifier: KeyModifierBit) bool {
-        return (self.storage & @enumToInt(modifier)) != 0;
+        return (self.storage & @intFromEnum(modifier)) != 0;
     }
     pub fn set(self: *KeyModifierSet, modifier: KeyModifierBit) void {
-        self.storage |= @enumToInt(modifier);
+        self.storage |= @intFromEnum(modifier);
     }
     pub fn clear(self: *KeyModifierSet, modifier: KeyModifierBit) void {
-        self.storage &= ~@enumToInt(modifier);
+        self.storage &= ~@intFromEnum(modifier);
     }
 };
 pub const KeyboardEvent = struct {
@@ -1098,10 +1098,10 @@ pub const KeyboardEvent = struct {
         return .{
             .timestamp = native.timestamp,
             .window_id = native.windowID,
-            .key_state = @intToEnum(KeyState, native.state),
+            .key_state = @as(KeyState, @enumFromInt(native.state)),
             .is_repeat = native.repeat != 0,
-            .scancode = @intToEnum(Scancode, native.keysym.scancode),
-            .keycode = @intToEnum(Keycode, native.keysym.sym),
+            .scancode = @as(Scancode, @enumFromInt(native.keysym.scancode)),
+            .keycode = @as(Keycode, @enumFromInt(native.keysym.sym)),
             .modifiers = KeyModifierSet.fromNative(native.keysym.mod),
         };
     }
@@ -1121,8 +1121,8 @@ pub const MouseButtonState = struct {
     storage: Storage,
 
     fn maskForButton(button_id: MouseButton) Storage {
-        const mask = @as(NativeBitField, 1) << (@enumToInt(button_id) - 1);
-        return @intCast(Storage, mask);
+        const mask = @as(NativeBitField, 1) << (@intFromEnum(button_id) - 1);
+        return @as(Storage, @intCast(mask));
     }
 
     pub fn getPressed(self: MouseButtonState, button_id: MouseButton) bool {
@@ -1136,7 +1136,7 @@ pub const MouseButtonState = struct {
     }
 
     pub fn fromNative(native: NativeBitField) MouseButtonState {
-        return .{ .storage = @intCast(Storage, native) };
+        return .{ .storage = @as(Storage, @intCast(native)) };
     }
     pub fn toNative(self: MouseButtonState) NativeBitField {
         return self.storage;
@@ -1209,8 +1209,8 @@ pub const MouseButtonEvent = struct {
             .timestamp = native.timestamp,
             .window_id = native.windowID,
             .mouse_instance_id = native.which,
-            .button = @intToEnum(MouseButton, native.button),
-            .state = @intToEnum(ButtonState, native.state),
+            .button = @as(MouseButton, @enumFromInt(native.button)),
+            .state = @as(ButtonState, @enumFromInt(native.state)),
             .clicks = native.clicks,
             .x = native.x,
             .y = native.y,
@@ -1256,7 +1256,7 @@ pub const MouseWheelEvent = struct {
             .mouse_instance_id = native.which,
             .delta_x = native.x,
             .delta_y = native.y,
-            .direction = @intToEnum(Direction, @intCast(u8, native.direction)),
+            .direction = @as(Direction, @enumFromInt(@as(u8, @intCast(native.direction)))),
         };
     }
 };
@@ -1282,10 +1282,10 @@ pub const JoyAxisEvent = struct {
 
     pub fn normalizedValue(self: JoyAxisEvent, comptime FloatType: type) FloatType {
         const denominator = if (self.value > 0)
-            @intToFloat(FloatType, c.SDL_JOYSTICK_AXIS_MAX)
+            @as(FloatType, @floatFromInt(c.SDL_JOYSTICK_AXIS_MAX))
         else
-            @intToFloat(FloatType, c.SDL_JOYSTICK_AXIS_MIN);
-        return @intToFloat(FloatType, self.value) / @fabs(denominator);
+            @as(FloatType, @floatFromInt(c.SDL_JOYSTICK_AXIS_MIN));
+        return @as(FloatType, @floatFromInt(self.value)) / @abs(denominator);
     }
 };
 
@@ -1316,7 +1316,7 @@ pub const JoyHatEvent = struct {
             .timestamp = native.timestamp,
             .joystick_id = native.which,
             .hat = native.hat,
-            .value = @intToEnum(HatValue, native.value),
+            .value = @as(HatValue, @enumFromInt(native.value)),
         };
     }
 };
@@ -1363,7 +1363,7 @@ pub const JoyButtonEvent = struct {
             .timestamp = native.timestamp,
             .joystick_id = native.which,
             .button = native.button,
-            .button_state = @intToEnum(ButtonState, native.state),
+            .button_state = @as(ButtonState, @enumFromInt(native.state)),
         };
     }
 };
@@ -1382,17 +1382,17 @@ pub const ControllerAxisEvent = struct {
         return .{
             .timestamp = native.timestamp,
             .joystick_id = native.which,
-            .axis = @intToEnum(GameController.Axis, native.axis),
+            .axis = @as(GameController.Axis, @enumFromInt(native.axis)),
             .value = native.value,
         };
     }
 
     pub fn normalizedValue(self: ControllerAxisEvent, comptime FloatType: type) FloatType {
         const denominator = if (self.value > 0)
-            @intToFloat(FloatType, c.SDL_JOYSTICK_AXIS_MAX)
+            @as(FloatType, @floatFromInt(c.SDL_JOYSTICK_AXIS_MAX))
         else
-            @intToFloat(FloatType, c.SDL_JOYSTICK_AXIS_MIN);
-        return @intToFloat(FloatType, self.value) / @fabs(denominator);
+            @as(FloatType, @floatFromInt(c.SDL_JOYSTICK_AXIS_MIN));
+        return @as(FloatType, @floatFromInt(self.value)) / @abs(denominator);
     }
 };
 
@@ -1415,8 +1415,8 @@ pub const ControllerButtonEvent = struct {
         return .{
             .timestamp = native.timestamp,
             .joystick_id = native.which,
-            .button = @intToEnum(GameController.Button, native.button),
-            .button_state = @intToEnum(ButtonState, native.state),
+            .button = @as(GameController.Button, @enumFromInt(native.button)),
+            .button_state = @as(ButtonState, @enumFromInt(native.state)),
         };
     }
 };
@@ -1627,7 +1627,7 @@ pub fn waitEvent() !Event {
 /// the thread that initialized the video subsystem.
 pub fn waitEventTimeout(timeout: usize) ?Event {
     var ev: c.SDL_Event = undefined;
-    if (c.SDL_WaitEventTimeout(&ev, @intCast(c_int, timeout)) != 0)
+    if (c.SDL_WaitEventTimeout(&ev, @as(c_int, @intCast(timeout))) != 0)
         return Event.from(ev);
     return null;
 }
@@ -1905,7 +1905,7 @@ pub const KeyboardState = struct {
     states: []const u8,
 
     pub fn isPressed(ks: KeyboardState, scancode: Scancode) bool {
-        return ks.states[@intCast(usize, @enumToInt(scancode))] != 0;
+        return ks.states[@as(usize, @intCast(@intFromEnum(scancode)))] != 0;
     }
 };
 
@@ -1913,12 +1913,12 @@ pub fn getKeyboardState() KeyboardState {
     var len: c_int = undefined;
     const slice = c.SDL_GetKeyboardState(&len);
     return KeyboardState{
-        .states = slice[0..@intCast(usize, len)],
+        .states = slice[0..@as(usize, @intCast(len))],
     };
 }
 pub const getModState = getKeyboardModifierState;
 pub fn getKeyboardModifierState() KeyModifierSet {
-    return KeyModifierSet.fromNative(@intCast(u16, c.SDL_GetModState()));
+    return KeyModifierSet.fromNative(@as(u16, @intCast(c.SDL_GetModState())));
 }
 
 pub const Keycode = enum(c.SDL_Keycode) {
@@ -2188,10 +2188,10 @@ pub const Clipboard = struct {
     }
     /// free is to be called with a previously fetched clipboard content
     pub fn free(txt: []const u8) void {
-        c.SDL_free(@ptrCast([*c]const u8, txt));
+        c.SDL_free(@as([*c]const u8, @ptrCast(txt)));
     }
     pub fn set(txt: []const u8) !void {
-        if (c.SDL_SetClipboardText(@ptrCast([*c]const u8, txt)) != 0)
+        if (c.SDL_SetClipboardText(@as([*c]const u8, @ptrCast(txt))) != 0)
             return makeError();
     }
 };
@@ -2215,7 +2215,7 @@ test "platform independent declarations" {
 pub fn numJoysticks() !u31 {
     const num = c.SDL_NumJoysticks();
     if (num < 0) return error.SdlError;
-    return @intCast(u31, num);
+    return @as(u31, @intCast(num));
 }
 
 pub const GameController = struct {
@@ -2293,7 +2293,7 @@ pub const AudioDevice = struct {
     }
 
     pub fn pause(self: AudioDevice, do_pause: bool) void {
-        c.SDL_PauseAudioDevice(self.id, @boolToInt(do_pause));
+        c.SDL_PauseAudioDevice(self.id, @intFromBool(do_pause));
     }
 
     pub fn lock(self: AudioDevice) void {
@@ -2381,7 +2381,7 @@ pub const AudioFormat = struct {
     }
 
     pub fn unpackSampleLengthBits(native_packed: u16) u8 {
-        return @intCast(u8, native_packed & @as(u8, c.SDL_AUDIO_MASK_BITSIZE));
+        return @as(u8, @intCast(native_packed & @as(u8, c.SDL_AUDIO_MASK_BITSIZE)));
     }
     pub fn unpackFloat(native_packed: u16) bool {
         return (native_packed & @as(u16, c.SDL_AUDIO_MASK_DATATYPE)) != 0;
@@ -2463,7 +2463,7 @@ pub fn openAudioDevice(options: OpenAudioDeviceOptions) !OpenAudioDeviceResult {
         .userdata = options.desired_spec.userdata,
     });
     var obtained_spec = std.mem.zeroInit(c.SDL_AudioSpec, .{});
-    switch (c.SDL_OpenAudioDevice(options.device_name, @boolToInt(options.is_capture), &desired_spec, &obtained_spec, options.allowed_changes_from_desired.toNative())) {
+    switch (c.SDL_OpenAudioDevice(options.device_name, @intFromBool(options.is_capture), &desired_spec, &obtained_spec, options.allowed_changes_from_desired.toNative())) {
         0 => return makeError(),
         else => |device_id| return OpenAudioDeviceResult{
             .device = .{
@@ -2510,8 +2510,8 @@ pub fn createCursor(data: []const u8, mask: []const u8, width: u32, height: u32,
         .ptr = c.SDL_CreateCursor(
             data.ptr,
             mask.ptr,
-            @intCast(c_int, width),
-            @intCast(c_int, height),
+            @as(c_int, @intCast(width)),
+            @as(c_int, @intCast(height)),
             hot_x,
             hot_y,
         ) orelse return makeError(),
@@ -2526,7 +2526,7 @@ pub fn createColorCursor(surface: Surface, hot_x: i32, hot_y: i32) !Cursor {
 
 pub fn createSystemCursor(id: SystemCursor) !Cursor {
     return Cursor{
-        .ptr = c.SDL_CreateSystemCursor(@enumToInt(id)) orelse return makeError(),
+        .ptr = c.SDL_CreateSystemCursor(@intFromEnum(id)) orelse return makeError(),
     };
 }
 
@@ -2547,7 +2547,7 @@ pub fn getDefaultCursor() !Cursor {
 }
 
 pub fn showCursor(toggle: ?bool) !bool {
-    const t = if (toggle) |show| @boolToInt(show) else c.SDL_QUERY;
+    const t = if (toggle) |show| @intFromBool(show) else c.SDL_QUERY;
     const ret = c.SDL_ShowCursor(t);
     if (ret < 0) {
         return makeError();
@@ -2612,23 +2612,23 @@ pub const AudioStream = struct {
     const Self = @This();
 
     pub fn put(self: *Self, buffer: []u8) !void {
-        const res = c.SDL_AudioStreamPut(self.stream, buffer.ptr, @intCast(c_int, buffer.len));
+        const res = c.SDL_AudioStreamPut(self.stream, buffer.ptr, @as(c_int, @intCast(buffer.len)));
         if (res == -1) {
             return error.SdlError;
         }
     }
 
     pub fn get(self: *Self, buffer: []u8) ![]u8 {
-        const res = c.SDL_AudioStreamGet(self.stream, buffer.ptr, @intCast(c_int, buffer.len));
+        const res = c.SDL_AudioStreamGet(self.stream, buffer.ptr, @as(c_int, @intCast(buffer.len)));
         if (res == -1) {
             return error.SdlError;
         }
-        return buffer[0..@intCast(usize, res)];
+        return buffer[0..@as(usize, @intCast(res))];
     }
 
     pub fn available(self: *Self) usize {
         const res = c.SDL_AudioStreamAvailable(self.stream);
-        return @intCast(usize, res);
+        return @as(usize, @intCast(res));
     }
 
     pub fn flush(self: *Self) !void {
@@ -2657,10 +2657,10 @@ pub fn newAudioStream(
     var stream = c.SDL_NewAudioStream(
         src_format.toNative(),
         src_channels,
-        @intCast(c_int, src_rate),
+        @as(c_int, @intCast(src_rate)),
         dst_format.toNative(),
         dst_channels,
-        @intCast(c_int, dst_rate),
+        @as(c_int, @intCast(dst_rate)),
     );
     if (stream) |s| {
         return AudioStream{
@@ -2675,10 +2675,10 @@ pub const mix_maxvolume = c.SDL_MIX_MAXVOLUME;
 
 pub fn mixAudioFormat(dst: []u8, src: []const u8, format: AudioFormat, volume: c_int) void {
     c.SDL_MixAudioFormat(
-        @ptrCast([*c]u8, dst),
-        @ptrCast([*c]const u8, src),
+        @as([*c]u8, @ptrCast(dst)),
+        @as([*c]const u8, @ptrCast(src)),
         format.toNative(),
-        @intCast(u32, std.math.min(dst.len, src.len)),
+        @as(u32, @intCast(std.math.min(dst.len, src.len))),
         volume,
     );
 }

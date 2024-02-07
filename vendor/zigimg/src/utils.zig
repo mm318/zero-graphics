@@ -9,16 +9,16 @@ pub const StructReadError = error{ EndOfStream, InvalidData } || io.StreamSource
 
 pub fn toMagicNumberNative(magic: []const u8) u32 {
     var result: u32 = 0;
-    for (magic) |character, index| {
-        result |= (@as(u32, character) << @intCast(u5, (index * 8)));
+    for (magic, 0..) |character, index| {
+        result |= (@as(u32, character) << @as(u5, @intCast((index * 8))));
     }
     return result;
 }
 
 pub fn toMagicNumberForeign(magic: []const u8) u32 {
     var result: u32 = 0;
-    for (magic) |character, index| {
-        result |= (@as(u32, character) << @intCast(u5, (magic.len - 1 - index) * 8));
+    for (magic, 0..) |character, index| {
+        result |= (@as(u32, character) << @as(u5, @intCast((magic.len - 1 - index) * 8)));
     }
     return result;
 }
@@ -38,7 +38,7 @@ fn checkEnumFields(data: anytype) StructReadError!void {
     inline for (meta.fields(T)) |entry| {
         switch (@typeInfo(entry.field_type)) {
             .Enum => {
-                const value = @enumToInt(@field(data, entry.name));
+                const value = @intFromEnum(@field(data, entry.name));
                 _ = std.meta.intToEnum(entry.field_type, value) catch return StructReadError.InvalidData;
             },
             .Struct => {
@@ -68,7 +68,7 @@ fn swapFieldBytes(data: anytype) StructReadError!void {
                 try swapFieldBytes(&@field(data, entry.name));
             },
             .Enum => {
-                const value = @enumToInt(@field(data, entry.name));
+                const value = @intFromEnum(@field(data, entry.name));
                 if (@bitSizeOf(@TypeOf(value)) > 8) {
                     @field(data, entry.name) = try std.meta.intToEnum(entry.field_type, @byteSwap(value));
                 } else {

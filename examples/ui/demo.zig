@@ -201,9 +201,9 @@ pub fn update(app: *Application) !bool {
             .key_down => |key| if (key.scancode == .escape) {
                 return false;
             } else {
-                app.core_view.pushInput(.{ .key_down = .{ .scancode = @enumToInt(key.scancode), .key = key.scancode, .modifiers = key.modifiers } });
+                app.core_view.pushInput(.{ .key_down = .{ .scancode = @intFromEnum(key.scancode), .key = key.scancode, .modifiers = key.modifiers } });
             },
-            .key_up => |key| app.core_view.pushInput(.{ .key_up = .{ .scancode = @enumToInt(key.scancode), .key = key.scancode, .modifiers = key.modifiers } }),
+            .key_up => |key| app.core_view.pushInput(.{ .key_up = .{ .scancode = @intFromEnum(key.scancode), .key = key.scancode, .modifiers = key.modifiers } }),
         }
 
         while (app.core_view.pullEvent()) |ui_event| {

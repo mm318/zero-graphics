@@ -76,7 +76,7 @@ pub fn find(self: Self, key: []const u21) Lookup {
     var success_index: usize = 0;
     var success_value: ?Elements = null;
 
-    for (key) |cp, i| {
+    for (key, 0..) |cp, i| {
         if (current_node.children == null or current_node.children.?.get(cp) == null) break;
 
         current_node = current_node.children.?.get(cp).?;

@@ -44,7 +44,7 @@ pub fn swapWindow(window: SDL.Window) void {
 
 fn attribValueToInt(value: anytype) c_int {
     return switch (@TypeOf(value)) {
-        usize => @intCast(c_int, value),
+        usize => @as(c_int, @intCast(value)),
         bool => if (value) @as(c_int, 1) else 0,
         ContextFlags => blk: {
             var result: c_int = 0;
@@ -63,7 +63,7 @@ fn attribValueToInt(value: anytype) c_int {
 
             break :blk result;
         },
-        Profile, ReleaseBehaviour => @enumToInt(value),
+        Profile, ReleaseBehaviour => @intFromEnum(value),
         else => @compileError("Unsupported type for sdl.gl.Attribute"),
     };
 }
@@ -72,7 +72,7 @@ pub fn setAttribute(attrib: Attribute) !void {
     inline for (std.meta.fields(Attribute)) |fld| {
         if (attrib == @field(AttributeName, fld.name)) {
             const res = c.SDL_GL_SetAttribute(
-                @intCast(c.SDL_GLattr, @enumToInt(attrib)),
+                @as(c.SDL_GLattr, @intCast(@intFromEnum(attrib))),
                 attribValueToInt(@field(attrib, fld.name)),
             );
             if (res != 0) {
