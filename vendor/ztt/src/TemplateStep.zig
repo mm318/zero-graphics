@@ -76,7 +76,7 @@ fn make(step: *std.build.Step) !void {
         var buffered_reader = std.io.bufferedReader(file.reader());
 
         var reader = buffered_reader.reader();
-        var writer = output_buffer.writer();
+        const writer = output_buffer.writer();
 
         const UnderlyingWriter = @TypeOf(writer);
 

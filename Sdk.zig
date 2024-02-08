@@ -11,14 +11,7 @@ fn sdkPath(comptime suffix: []const u8) []const u8 {
 
 const Sdk = @This();
 
-const SdlSdk = @import("vendor/SDL.zig/Sdk.zig");
 const TemplateStep = @import("vendor/ztt/src/TemplateStep.zig");
-const NFD = @import("vendor/nfd/build.zig");
-
-pub const Platform = union(enum) {
-    desktop: std.zig.CrossTarget,
-    web,
-};
 
 fn requiresSingleThreaded(target: std.zig.CrossTarget) bool {
     const info = std.zig.system.NativeTargetInfo.detect(target) catch @panic("invalid");
@@ -50,10 +43,9 @@ const pkgs = struct {
     };
 };
 
-const web_folder = std.build.InstallDir{ .custom = "www" };
+const web_folder = std.Build.InstallDir{ .custom = "www" };
 
 builder: *std.Build,
-sdl_sdk: *SdlSdk,
 
 dummy_server: *std.Build.Step.Compile,
 
@@ -65,18 +57,18 @@ pub fn init(builder: *std.Build) *Sdk {
     const sdk = builder.allocator.create(Sdk) catch @panic("out of memory");
     sdk.* = Sdk{
         .builder = builder,
-        .sdl_sdk = SdlSdk.init(builder),
         .install_web_sources = builder.allocator.dupe(*std.Build.Step.InstallFile, &[_]*std.Build.Step.InstallFile{
             builder.addInstallFileWithDir(.{ .path = sdkPath("/www/zero-graphics.js") }, web_folder, "zero-graphics.js"),
         }) catch @panic("out of memory"),
         .render_main_page_tool = builder.addExecutable(.{
             .name = "render-html-page",
+            .target = builder.standardTargetOptions(.{}),
             .root_source_file = .{ .path = sdkPath("/tools/render-ztt-page.zig") },
         }),
         .dummy_server = undefined,
     };
 
-    const html_module = builder.addModule("html", .{ .source_file = TemplateStep.transform(builder, sdkPath("/www/application.ztt")) });
+    const html_module = builder.addModule("html", .{ .root_source_file = TemplateStep.transform(builder, sdkPath("/www/application.ztt")) });
     sdk.render_main_page_tool.addModule("html", html_module);
 
     sdk.dummy_server = builder.addExecutable("http-server", sdkPath("/tools/http-server.zig"));
@@ -86,16 +78,6 @@ pub fn init(builder: *std.Build) *Sdk {
     });
 
     return sdk;
-}
-
-pub fn standardPlatformOptions(sdk: *Sdk) Platform {
-    const platform_tag = sdk.builder.option(std.meta.Tag(Platform), "platform", "The platform to build for") orelse .desktop;
-    return switch (platform_tag) {
-        .desktop => Platform{
-            .desktop = sdk.builder.standardTargetOptions(.{}),
-        },
-        .web => .web,
-    };
 }
 
 fn validateName(name: []const u8, allowed_chars: []const u8) void {
@@ -213,7 +195,7 @@ pub const Application = struct {
         app.resolution = resolution;
     }
 
-    fn prepareExe(app: *Application, exe: *std.Build.Step.Compile, app_pkg: std.build.Pkg, features: Features, platform: Platform) void {
+    fn prepareExe(app: *Application, exe: *std.Build.Step.Compile, app_pkg: std.build.Pkg, features: Features) void {
         exe.main_pkg_path = sdkPath("/src");
 
         exe.addPackage(app_pkg);
@@ -247,21 +229,11 @@ pub const Application = struct {
         }
 
         if (features.file_dialogs) {
-            switch (platform) {
-                .desktop => {
-
-                    // For desktop versions, we link lib-nfd
-                    const libnfd = NFD.makeLib(app.sdk.builder, .ReleaseSafe, exe.target);
-                    libnfd.single_threaded = requiresSingleThreaded(exe.target);
-                    exe.linkLibrary(libnfd);
-                    exe.addPackage(NFD.getPackage("nfd"));
-                },
-                else => @panic("file dialogs not supported on target platform."),
-            }
+            @panic("file dialogs not supported on web platform.");
         }
     }
 
-    pub fn compileFor(app: *Application, platform: Platform) *AppCompilation {
+    pub fn compileForWeb(app: *Application) *AppCompilation {
         const app_pkg = app.sdk.builder.dupePkg(std.build.Pkg{
             .name = "application",
             .source = app.root_file,
@@ -274,13 +246,13 @@ pub const Application = struct {
                 .file_dialogs = app.features.file_dialogs,
             };
 
-            if (features.code_editor and platform == .web) {
+            if (features.code_editor) {
                 features.code_editor = false;
-                logger.warn("Disabling unsupported feature 'code_editor' for platform {s}", .{@tagName(platform)});
+                logger.warn("Disabling unsupported feature 'code_editor' for web platform", .{});
             }
-            if (features.file_dialogs and platform == .web) {
+            if (features.file_dialogs) {
                 features.file_dialogs = false;
-                logger.warn("Disabling unsupported feature 'file_dialogs' for platform {s}", .{@tagName(platform)});
+                logger.warn("Disabling unsupported feature 'file_dialogs' for web platform", .{});
             }
 
             break :blk features;
@@ -314,40 +286,21 @@ pub const Application = struct {
             .source = options.getFileSource("target-config.zig").?,
         };
 
-        switch (platform) {
-            .desktop => |target| {
-                const exe = app.sdk.builder.addExecutable(app.name, sdkPath("/src/main/desktop.zig"));
-                exe.setBuildMode(app.build_mode);
-                exe.setTarget(target);
-                exe.addPackage(build_options);
-                exe.single_threaded = requiresSingleThreaded(target);
-                exe.addPackage(app.sdk.sdl_sdk.getNativePackage("sdl2"));
-                app.sdk.sdl_sdk.link(exe, .dynamic);
+        const exe = app.sdk.builder.addSharedLibrary(app.name, sdkPath("/src/main/wasm.zig"), .unversioned);
+        exe.single_threaded = true;
+        exe.setBuildMode(app.build_mode);
+        exe.setTarget(std.zig.CrossTarget{
+            .cpu_arch = .wasm32,
+            .os_tag = .freestanding,
+            .abi = .musl,
+        });
+        exe.addPackage(build_options);
+        exe.rdynamic = true;
+        app.prepareExe(exe, app_pkg, features);
 
-                app.prepareExe(exe, app_pkg, features, platform);
-
-                return app.createCompilation(.{
-                    .desktop = exe,
-                });
-            },
-            .web => {
-                const exe = app.sdk.builder.addSharedLibrary(app.name, sdkPath("/src/main/wasm.zig"), .unversioned);
-                exe.single_threaded = true;
-                exe.setBuildMode(app.build_mode);
-                exe.setTarget(std.zig.CrossTarget{
-                    .cpu_arch = .wasm32,
-                    .os_tag = .freestanding,
-                    .abi = .musl,
-                });
-                exe.addPackage(build_options);
-                exe.rdynamic = true;
-                app.prepareExe(exe, app_pkg, features, platform);
-
-                return app.createCompilation(.{
-                    .web = exe,
-                });
-            },
-        }
+        return app.createCompilation(.{
+            .web = exe,
+        });
     }
 
     fn createCompilation(app: *Application, data: AppCompilation.Data) *AppCompilation {
@@ -363,7 +316,6 @@ pub const Application = struct {
 
 pub const AppCompilation = struct {
     const Data = union(enum) {
-        desktop: *std.Build.Step.Compile,
         web: *std.Build.Step.Compile,
     };
 
@@ -381,10 +333,6 @@ pub const AppCompilation = struct {
 
     pub fn install(comp: *AppCompilation) void {
         switch (comp.data) {
-            .desktop => |step| {
-                step.install();
-                comp.install_step = &step.install_step.?.step;
-            },
             .web => |step| {
                 step.install();
 
@@ -415,7 +363,6 @@ pub const AppCompilation = struct {
 
     pub fn run(comp: *AppCompilation) *std.build.RunStep {
         return switch (comp.data) {
-            .desktop => |step| step.run(),
             .web => |step| blk: {
                 step.install();
 

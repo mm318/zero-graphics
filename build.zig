@@ -4,14 +4,11 @@ const Sdk = @import("Sdk.zig");
 const Assimp = @import("vendor/zig-assimp/Sdk.zig");
 
 pub fn build(b: *std.Build) !void {
-    const app_only_step = b.step("app", "Builds only the desktop application");
-
     const sdk = Sdk.init(b);
     const assimp = Assimp.init(b);
 
     const target = b.standardTargetOptions(.{});
     const mode = b.standardOptimizeOption(.{});
-    const platform = sdk.standardPlatformOptions();
 
     const arg_module = b.addModule("args", .{ .source_file = .{ .path = "vendor/args/args.zig" } });
 
@@ -30,9 +27,7 @@ pub fn build(b: *std.Build) !void {
         app.setDisplayName("ZeroGraphics Init App");
         app.setPackageName("net.random_projects.zero_graphics.init_app");
         app.setBuildMode(mode);
-
-        b.getInstallStep().dependOn(app.compileFor(platform).getStep());
-        b.getInstallStep().dependOn(app.compileFor(.web).getStep());
+        b.getInstallStep().dependOn(app.compileForWeb().getStep());
     }
 
     {
@@ -65,25 +60,9 @@ pub fn build(b: *std.Build) !void {
         .source = .{ .path = "vendor/zlm/zlm.zig" },
     });
 
-    {
-        const desktop_exe = app.compileFor(platform);
-        desktop_exe.install();
-        app_only_step.dependOn(&desktop_exe.data.desktop.install_step.?.step);
-
-        const run_cmd = desktop_exe.run();
-        run_cmd.step.dependOn(b.getInstallStep());
-        if (b.args) |args| {
-            run_cmd.addArgs(args);
-        }
-
-        const run_step = b.step("run", "Run the app");
-        run_step.dependOn(&run_cmd.step);
-    }
-
     // Build wasm application
-    // TODO: Reinclude when https://github.com/llvm/llvm-project/issues/58557 is fixed.
     {
-        const wasm_build = app.compileFor(.web);
+        const wasm_build = app.compileForWeb();
         wasm_build.install();
 
         const serve = wasm_build.run();
@@ -95,56 +74,56 @@ pub fn build(b: *std.Build) !void {
         run_step.dependOn(&serve.step);
     }
 
-    {
-        const zero_g_pkg = sdk.getLibraryPackage("zero-graphics");
-        const zero_ui_pkg = std.build.Pkg{
-            .name = "zero-ui",
-            .source = .{ .path = "src/ui/core/ui.zig" },
-            .dependencies = &.{
-                zero_g_pkg,
-                .{
-                    .name = "controls",
-                    .source = .{ .path = "src/ui/standard-controls/standard-controls.zig" },
-                    .dependencies = &.{
-                        .{
-                            .name = "ui",
-                            .source = .{ .path = "src/ui/core/ui.zig" },
-                        },
-                        .{
-                            .name = "TextEditor",
-                            .source = .{ .path = "vendor/text-editor/src/TextEditor.zig" },
-                            .dependencies = &.{
-                                .{
-                                    .name = "ziglyph",
-                                    .source = .{ .path = "vendor/ziglyph/src/ziglyph.zig" },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        };
+    // {
+    //     const zero_g_pkg = sdk.getLibraryPackage("zero-graphics");
+    //     const zero_ui_pkg = std.build.Pkg{
+    //         .name = "zero-ui",
+    //         .source = .{ .path = "src/ui/core/ui.zig" },
+    //         .dependencies = &.{
+    //             zero_g_pkg,
+    //             .{
+    //                 .name = "controls",
+    //                 .source = .{ .path = "src/ui/standard-controls/standard-controls.zig" },
+    //                 .dependencies = &.{
+    //                     .{
+    //                         .name = "ui",
+    //                         .source = .{ .path = "src/ui/core/ui.zig" },
+    //                     },
+    //                     .{
+    //                         .name = "TextEditor",
+    //                         .source = .{ .path = "vendor/text-editor/src/TextEditor.zig" },
+    //                         .dependencies = &.{
+    //                             .{
+    //                                 .name = "ziglyph",
+    //                                 .source = .{ .path = "vendor/ziglyph/src/ziglyph.zig" },
+    //                             },
+    //                         },
+    //                     },
+    //                 },
+    //             },
+    //         },
+    //     };
 
-        const ui_demo = sdk.createApplication("ui_demo", "examples/ui/demo.zig");
-        ui_demo.setDisplayName("Zero UI");
-        ui_demo.setPackageName("net.random_projects.zero_graphics.ui_demo");
-        ui_demo.setBuildMode(mode);
-        ui_demo.addPackage(zero_ui_pkg);
-        ui_demo.addPackage(.{
-            .name = "layout-engine",
-            .source = .{ .path = "src/ui/standard-layout/standard-layout.zig" },
-            .dependencies = &.{zero_ui_pkg},
-        });
-        ui_demo.addPackage(.{
-            .name = "render-engine",
-            .source = .{ .path = "src/ui/standard-renderer/standard-renderer.zig" },
-            .dependencies = &.{ zero_ui_pkg, zero_g_pkg },
-        });
+    //     const ui_demo = sdk.createApplication("ui_demo", "examples/ui/demo.zig");
+    //     ui_demo.setDisplayName("Zero UI");
+    //     ui_demo.setPackageName("net.random_projects.zero_graphics.ui_demo");
+    //     ui_demo.setBuildMode(mode);
+    //     ui_demo.addPackage(zero_ui_pkg);
+    //     ui_demo.addPackage(.{
+    //         .name = "layout-engine",
+    //         .source = .{ .path = "src/ui/standard-layout/standard-layout.zig" },
+    //         .dependencies = &.{zero_ui_pkg},
+    //     });
+    //     ui_demo.addPackage(.{
+    //         .name = "render-engine",
+    //         .source = .{ .path = "src/ui/standard-renderer/standard-renderer.zig" },
+    //         .dependencies = &.{ zero_ui_pkg, zero_g_pkg },
+    //     });
 
-        ui_demo.setInitialResolution(.{ .windowed = .{ .width = 480, .height = 320 } });
+    //     ui_demo.setInitialResolution(.{ .windowed = .{ .width = 480, .height = 320 } });
 
-        const ui_demo_exe = ui_demo.compileFor(platform);
+    //     const ui_demo_exe = ui_demo.compileForWeb(platform);
 
-        ui_demo_exe.install();
-    }
+    //     ui_demo_exe.install();
+    // }
 }
