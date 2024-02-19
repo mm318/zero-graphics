@@ -4,20 +4,22 @@ const Sdk = @import("Sdk.zig");
 const Assimp = @import("vendor/zig-assimp/Sdk.zig");
 
 pub fn build(b: *std.Build) !void {
-    const sdk = Sdk.init(b);
-    const assimp = Assimp.init(b);
-
     const target = b.standardTargetOptions(.{});
     const mode = b.standardOptimizeOption(.{});
 
-    const arg_module = b.addModule("args", .{ .source_file = .{ .path = "vendor/args/args.zig" } });
+    const sdk = Sdk.init(b, target, mode);
+    const assimp = Assimp.init(b);
+
+    const arg_module = b.createModule(.{ .root_source_file = .{ .path = "vendor/args/args.zig" } });
 
     {
         const zero_init = b.addExecutable(.{
             .name = "zero-init",
+            .target = target,
             .root_source_file = .{ .path = "tools/zero-init/main.zig" },
+            .optimize = mode,
         });
-        zero_init.addModule("args", arg_module);
+        zero_init.root_module.addImport("args", arg_module);
         b.installArtifact(zero_init);
     }
 
@@ -26,43 +28,49 @@ pub fn build(b: *std.Build) !void {
         const app = sdk.createApplication("zero_init_app", "tools/zero-init/template/src/main.zig");
         app.setDisplayName("ZeroGraphics Init App");
         app.setPackageName("net.random_projects.zero_graphics.init_app");
-        app.setBuildMode(mode);
-        b.getInstallStep().dependOn(app.compileForWeb().getStep());
+        b.getInstallStep().dependOn(app.compileForWeb(target, mode).getStep());
     }
 
     {
-        const converter_api = b.addTranslateC(.{ .source_file = .{ .path = "tools/zero-convert/api.h" }, .target = target, .optimize = mode });
-        const api_module = b.addModule("api", .{ .source_file = converter_api.getOutput() });
-        const z3d_module = b.addModule("z3d", .{ .source_file = .{ .path = "src/rendering/z3d-format.zig" } });
+        const converter_api = b.addTranslateC(.{
+            .target = target,
+            .source_file = .{ .path = "tools/zero-convert/api.h" },
+            .optimize = mode,
+        });
 
-        const converter = b.addExecutable(.{ .name = "zero-convert", .root_source_file = .{ .path = "tools/zero-convert/main.zig" } });
+        const api_module = b.createModule(.{ .root_source_file = converter_api.getOutput() });
+        const z3d_module = b.createModule(.{ .root_source_file = .{ .path = "src/rendering/z3d-format.zig" } });
+
+        const converter = b.addExecutable(.{
+            .name = "zero-convert",
+            .target = target,
+            .root_source_file = .{ .path = "tools/zero-convert/main.zig" },
+            .optimize = mode,
+        });
         converter.addCSourceFile(.{ .file = .{ .path = "tools/zero-convert/converter.cpp" }, .flags = &[_][]const u8{
             "-std=c++17",
             "-Wall",
             "-Wextra",
         } });
-        converter.addModule("api", api_module);
-        converter.addModule("z3d", z3d_module);
-        converter.addModule("args", arg_module);
+        converter.root_module.addImport("api", api_module);
+        converter.root_module.addImport("z3d", z3d_module);
+        converter.root_module.addImport("args", arg_module);
         converter.linkLibC();
         converter.linkLibCpp();
         assimp.addTo(converter, .static, Assimp.FormatSet.default);
         b.installArtifact(converter);
     }
 
+    const zlm_module = b.createModule(.{ .root_source_file = .{ .path = "vendor/zlm/zlm.zig" } });
+
     const app = sdk.createApplication("demo_application", "examples/features/feature-demo.zig");
     app.setDisplayName("ZeroGraphics Demo");
     app.setPackageName("net.random_projects.zero_graphics.demo");
-    app.setBuildMode(mode);
-
-    app.addPackage(std.build.Pkg{
-        .name = "zlm",
-        .source = .{ .path = "vendor/zlm/zlm.zig" },
-    });
+    app.addPackage("zlm", zlm_module);
 
     // Build wasm application
     {
-        const wasm_build = app.compileForWeb();
+        const wasm_build = app.compileForWeb(target, mode);
         wasm_build.install();
 
         const serve = wasm_build.run();

@@ -2,25 +2,29 @@ const std = @import("std");
 
 const Sdk = @This();
 
-fn sdkPath(comptime suffix: []const u8) []const u8 {
-    if (suffix[0] != '/') @compileError("relToPath requires an absolute path!");
+fn sdkPath(comptime suffix: []const u8) std.Build.LazyPath {
+    if (suffix[0] != '/') {
+        @compileError("relToPath requires an absolute path!");
+    }
     return comptime blk: {
         const root_dir = std.fs.path.dirname(@src().file) orelse ".";
-        break :blk root_dir ++ suffix;
+        break :blk std.Build.LazyPath{ .path = root_dir ++ suffix };
     };
 }
 
-fn assimpPath(comptime suffix: []const u8) []const u8 {
-    if (suffix[0] != '/') @compileError("relToPath requires an absolute path!");
+fn assimpPath(comptime suffix: []const u8) std.Build.LazyPath {
+    if (suffix[0] != '/') {
+        @compileError("relToPath requires an absolute path!");
+    }
     return comptime blk: {
-        const root_dir = sdkPath("/vendor/assimp");
-        break :blk root_dir ++ suffix;
+        const root_dir = sdkPath("/vendor/assimp").path;
+        break :blk std.Build.LazyPath{ .path = root_dir ++ suffix };
     };
 }
 
-builder: *std.build.Builder,
+builder: *std.Build,
 
-pub fn init(b: *std.build.Builder) *Sdk {
+pub fn init(b: *std.Build) *Sdk {
     const sdk = b.allocator.create(Sdk) catch @panic("out of memory");
     sdk.* = Sdk{
         .builder = b,
@@ -41,7 +45,7 @@ const UpperCaseFormatter = std.fmt.Formatter(struct {
         var tmp: [256]u8 = undefined;
         var i: usize = 0;
         while (i < string.len) : (i += tmp.len) {
-            try writer.writeAll(std.ascii.upperString(&tmp, string[i..std.math.min(string.len, i + tmp.len)]));
+            try writer.writeAll(std.ascii.upperString(&tmp, string[i..@min(string.len, i + tmp.len)]));
         }
     }
 }.format);
@@ -55,11 +59,19 @@ const define_name_patches = struct {
     pub const Unreal = "3D";
 };
 
-/// Creates a new LibExeObjStep that will build Assimp. `linkage`
-pub fn createLibrary(sdk: *Sdk, linkage: std.build.LibExeObjStep.Linkage, formats: FormatSet) *std.build.LibExeObjStep {
+/// Creates a new Step.Compile that will build Assimp. `linkage`
+pub fn createLibrary(sdk: *Sdk, target: *std.Build.Step.Compile, linkage: std.Build.Step.Compile.Linkage, formats: FormatSet) *std.Build.Step.Compile {
     const lib = switch (linkage) {
-        .static => sdk.builder.addStaticLibrary("assimp", null),
-        .dynamic => sdk.builder.addSharedLibrary("assimp", null, .unversioned),
+        .static => sdk.builder.addStaticLibrary(.{
+            .name = "assimp",
+            .target = target.root_module.resolved_target orelse @panic("Undefined target"),
+            .optimize = target.root_module.optimize orelse @panic("Undefined optimization"),
+        }),
+        .dynamic => sdk.builder.addSharedLibrary(.{
+            .name = "assimp",
+            .target = target.root_module.resolved_target orelse @panic("Undefined target"),
+            .optimize = target.root_module.optimize orelse @panic("Undefined optimization"),
+        }),
     };
 
     lib.linkLibC();
@@ -103,24 +115,19 @@ pub fn createLibrary(sdk: *Sdk, linkage: std.build.LibExeObjStep.Linkage, format
     return lib;
 }
 
-fn addSources(lib: *std.build.LibExeObjStep, file_list: []const []const u8) void {
+fn addSources(lib: *std.Build.Step.Compile, file_list: []const []const u8) void {
     const flags = [_][]const u8{};
 
     for (file_list) |src| {
-        const ext = std.fs.path.extension(src);
-        if (std.mem.eql(u8, ext, ".c")) {
-            lib.addCSourceFile(src, &flags);
-        } else {
-            lib.addCSourceFile(src, &flags);
-        }
+        lib.addCSourceFile(.{ .file = .{ .path = src }, .flags = &flags });
     }
 }
 
 /// Returns the include path for the Assimp library.
-pub fn getIncludePaths(sdk: *Sdk) []const []const u8 {
+pub fn getIncludePaths(sdk: *Sdk) []const std.Build.LazyPath {
     _ = sdk;
     const T = struct {
-        const paths = [_][]const u8{
+        const paths = [_]std.Build.LazyPath{
             sdkPath("/include"),
             sdkPath("/vendor/assimp/include"),
         };
@@ -130,10 +137,8 @@ pub fn getIncludePaths(sdk: *Sdk) []const []const u8 {
 
 /// Adds Assimp to the given `target`, using both `build_mode` and `target` from it.
 /// Will link dynamically or statically depending on linkage.
-pub fn addTo(sdk: *Sdk, target: *std.build.LibExeObjStep, linkage: std.build.LibExeObjStep.Linkage, formats: FormatSet) void {
-    const lib = sdk.createLibrary(linkage, formats);
-    lib.setTarget(target.target);
-    lib.setBuildMode(target.build_mode);
+pub fn addTo(sdk: *Sdk, target: *std.Build.Step.Compile, linkage: std.Build.Step.Compile.Linkage, formats: FormatSet) void {
+    const lib = sdk.createLibrary(target, linkage, formats);
     target.linkLibrary(lib);
     for (sdk.getIncludePaths()) |path| {
         target.addIncludePath(path);
@@ -290,7 +295,7 @@ pub const FormatSet = struct {
 };
 
 const sources = struct {
-    const src_root = assimpPath("/code");
+    const src_root = assimpPath("/code").path;
 
     const common = [_][]const u8{
         src_root ++ "/CApi/AssimpCExport.cpp",
@@ -361,24 +366,24 @@ const sources = struct {
 
     const libraries = struct {
         const unzip = [_][]const u8{
-            assimpPath("/contrib/unzip/unzip.c"),
-            assimpPath("/contrib/unzip/ioapi.c"),
-            assimpPath("/contrib/unzip/crypt.c"),
+            assimpPath("/contrib/unzip/unzip.c").path,
+            assimpPath("/contrib/unzip/ioapi.c").path,
+            assimpPath("/contrib/unzip/crypt.c").path,
         };
         const zip = [_][]const u8{
-            assimpPath("/contrib/zip/src/zip.c"),
+            assimpPath("/contrib/zip/src/zip.c").path,
         };
         const zlib = [_][]const u8{
-            assimpPath("/contrib/zlib/inflate.c"),
-            assimpPath("/contrib/zlib/infback.c"),
-            assimpPath("/contrib/zlib/gzclose.c"),
-            assimpPath("/contrib/zlib/gzread.c"),
-            assimpPath("/contrib/zlib/inftrees.c"),
-            assimpPath("/contrib/zlib/gzwrite.c"),
-            assimpPath("/contrib/zlib/compress.c"),
-            assimpPath("/contrib/zlib/inffast.c"),
-            assimpPath("/contrib/zlib/uncompr.c"),
-            assimpPath("/contrib/zlib/gzlib.c"),
+            assimpPath("/contrib/zlib/inflate.c").path,
+            assimpPath("/contrib/zlib/infback.c").path,
+            assimpPath("/contrib/zlib/gzclose.c").path,
+            assimpPath("/contrib/zlib/gzread.c").path,
+            assimpPath("/contrib/zlib/inftrees.c").path,
+            assimpPath("/contrib/zlib/gzwrite.c").path,
+            assimpPath("/contrib/zlib/compress.c").path,
+            assimpPath("/contrib/zlib/inffast.c").path,
+            assimpPath("/contrib/zlib/uncompr.c").path,
+            assimpPath("/contrib/zlib/gzlib.c").path,
             // assimpRoot() ++ "/contrib/zlib/contrib/testzlib/testzlib.c",
             // assimpRoot() ++ "/contrib/zlib/contrib/inflate86/inffas86.c",
             // assimpRoot() ++ "/contrib/zlib/contrib/masmx64/inffas8664.c",
@@ -395,29 +400,29 @@ const sources = struct {
             // assimpRoot() ++ "/contrib/zlib/contrib/puff/puff.c",
             // assimpRoot() ++ "/contrib/zlib/contrib/blast/blast.c",
             // assimpRoot() ++ "/contrib/zlib/contrib/untgz/untgz.c",
-            assimpPath("/contrib/zlib/trees.c"),
-            assimpPath("/contrib/zlib/zutil.c"),
-            assimpPath("/contrib/zlib/deflate.c"),
-            assimpPath("/contrib/zlib/crc32.c"),
-            assimpPath("/contrib/zlib/adler32.c"),
+            assimpPath("/contrib/zlib/trees.c").path,
+            assimpPath("/contrib/zlib/zutil.c").path,
+            assimpPath("/contrib/zlib/deflate.c").path,
+            assimpPath("/contrib/zlib/crc32.c").path,
+            assimpPath("/contrib/zlib/adler32.c").path,
         };
         const poly2tri = [_][]const u8{
-            assimpPath("/contrib/poly2tri/poly2tri/common/shapes.cc"),
-            assimpPath("/contrib/poly2tri/poly2tri/sweep/sweep_context.cc"),
-            assimpPath("/contrib/poly2tri/poly2tri/sweep/advancing_front.cc"),
-            assimpPath("/contrib/poly2tri/poly2tri/sweep/cdt.cc"),
-            assimpPath("/contrib/poly2tri/poly2tri/sweep/sweep.cc"),
+            assimpPath("/contrib/poly2tri/poly2tri/common/shapes.cc").path,
+            assimpPath("/contrib/poly2tri/poly2tri/sweep/sweep_context.cc").path,
+            assimpPath("/contrib/poly2tri/poly2tri/sweep/advancing_front.cc").path,
+            assimpPath("/contrib/poly2tri/poly2tri/sweep/cdt.cc").path,
+            assimpPath("/contrib/poly2tri/poly2tri/sweep/sweep.cc").path,
         };
         const clipper = [_][]const u8{
-            assimpPath("/contrib/clipper/clipper.cpp"),
+            assimpPath("/contrib/clipper/clipper.cpp").path,
         };
         const openddlparser = [_][]const u8{
-            assimpPath("/contrib/openddlparser/code/OpenDDLParser.cpp"),
-            assimpPath("/contrib/openddlparser/code/OpenDDLExport.cpp"),
-            assimpPath("/contrib/openddlparser/code/DDLNode.cpp"),
-            assimpPath("/contrib/openddlparser/code/OpenDDLCommon.cpp"),
-            assimpPath("/contrib/openddlparser/code/Value.cpp"),
-            assimpPath("/contrib/openddlparser/code/OpenDDLStream.cpp"),
+            assimpPath("/contrib/openddlparser/code/OpenDDLParser.cpp").path,
+            assimpPath("/contrib/openddlparser/code/OpenDDLExport.cpp").path,
+            assimpPath("/contrib/openddlparser/code/DDLNode.cpp").path,
+            assimpPath("/contrib/openddlparser/code/OpenDDLCommon.cpp").path,
+            assimpPath("/contrib/openddlparser/code/Value.cpp").path,
+            assimpPath("/contrib/openddlparser/code/OpenDDLStream.cpp").path,
         };
     };
 
