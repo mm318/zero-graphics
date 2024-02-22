@@ -121,7 +121,7 @@ pub fn update(app: *Application) !bool {
         var ui_input = app.ui.processInput();
         defer ui_input.finish();
 
-        var core_filter = core().input.filter();
+        const core_filter = core().input.filter();
 
         var ui_filter = ui_input.inputFilter(core_filter);
 
@@ -311,8 +311,8 @@ pub fn update(app: *Application) !bool {
 
                     startup_time = startup_time orelse zero_graphics.milliTimestamp();
 
-                    var t = 0.001 * @as(f32, @floatFromInt(zero_graphics.milliTimestamp() - startup_time.?));
-                    var points: [3][2]f32 = undefined;
+                    const t = 0.001 * @as(f32, @floatFromInt(zero_graphics.milliTimestamp() - startup_time.?));
+                    const points: [3][2]f32 = undefined;
 
                     for (points, 0..) |*pt, i| {
                         const offset = @as(f32, @floatFromInt(i));
@@ -322,7 +322,7 @@ pub fn update(app: *Application) !bool {
                         pt[1] = mirror * @cos((0.1 * offset) * 0.4 * t + offset);
                     }
 
-                    var real_pt: [3]zero_graphics.Point = undefined;
+                    const real_pt: [3]zero_graphics.Point = undefined;
                     for (real_pt, 0..) |*dst, i| {
                         const src = points[i];
                         dst.* = .{
@@ -543,7 +543,7 @@ pub fn render(app: *Application) !void {
         if (take_screenshot) {
             take_screenshot = false;
 
-            var buffer = try app.allocator.alloc(u8, 4 * @as(usize, core().screen_size.width) * @as(usize, core().screen_size.height));
+            const buffer = try app.allocator.alloc(u8, 4 * @as(usize, core().screen_size.width) * @as(usize, core().screen_size.height));
             defer app.allocator.free(buffer);
 
             gles.pixelStorei(gles.PACK_ALIGNMENT, 1);

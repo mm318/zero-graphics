@@ -242,7 +242,7 @@ fn getElements(self: Self, allocator: std.mem.Allocator, str: []const u8) ![]con
 
                 if (self.ducet.get(S)) |sc_elements| {
                     // S + C has an entry; Rotate C to be just after S.
-                    var segment = cp_list.items[tail_start..tail_index];
+                    const segment = cp_list.items[tail_start..tail_index];
                     std.mem.rotate(u21, segment, segment.len - 1);
 
                     // Add S + C elements to final collection.
@@ -503,7 +503,7 @@ pub fn descendingBase(self: Self, a: []const u8, b: []const u8) bool {
 
 test "UCA tests" {
     var path_buf: [1024]u8 = undefined;
-    var path = try std.fs.cwd().realpath(".", &path_buf);
+    const path = try std.fs.cwd().realpath(".", &path_buf);
     // Check if testing in this library path.
     if (!std.mem.endsWith(u8, path, "ziglyph")) return;
 

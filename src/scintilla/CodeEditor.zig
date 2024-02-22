@@ -225,7 +225,7 @@ export fn zero_graphics_getHeight() callconv(.C) c_int {
 }
 
 export fn zero_graphics_alloc(raw_allocator: ?*anyopaque, size: usize) callconv(.C) ?*anyopaque {
-    const allocator = @as(*std.mem.Allocator, @ptrCast(@alignCast(@alignOf(std.mem.Allocator), raw_allocator)));
+    const allocator = @as(*std.mem.Allocator, @ptrCast(@alignCast(raw_allocator)));
 
     if (size == 0) return null;
 
@@ -314,7 +314,7 @@ fn measureCharPositions(zedit: PZigEditor, font_ptr: ?*c.ZigFont, str: [*]const 
     while (iter.nextCodepointSlice()) |slice| {
         const codepoint = std.unicode.utf8Decode(slice) catch unreachable;
 
-        var glyph = self.renderer.getGlyph(font, codepoint) catch continue;
+        const glyph = self.renderer.getGlyph(font, codepoint) catch continue;
 
         glyph_offset += font.scaleValue(glyph.advance_width);
         for (slice) |_| {

@@ -726,7 +726,7 @@ pub const Builder = struct {
     fn InitOrUpdateWidget(comptime widget: ControlType) type {
         return struct {
             pub const Control = blk: {
-                inline for (std.meta.fields(Widget.Control)) |fld| {
+                for (std.meta.fields(Widget.Control)) |fld| {
                     if (std.mem.eql(u8, fld.name, @tagName(widget)))
                         break :blk fld.field_type;
                 }
@@ -1242,7 +1242,7 @@ pub const InputProcessor = struct {
         }
 
         fn fetchFunc(ctx: *anyopaque) error{OutOfMemory}!?types.Input.Event {
-            const filter = @as(*InputFilter, @ptrCast(@alignCast(@alignOf(InputFilter), ctx)));
+            const filter = @as(*InputFilter, @ptrCast(@alignCast(ctx)));
             while (try filter.source.fetch()) |event| {
                 switch (event) {
                     .pointer_motion => |pt| filter.target.setPointer(pt),

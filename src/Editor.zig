@@ -222,8 +222,8 @@ fn processEvent(self: *Editor, event: zero_graphics.Input.Event) !bool {
             }
 
             if (self.dragged) |dragged| {
-                var dx = self.mouse_pos.x - self.drag_start.x;
-                var dy = self.mouse_pos.y - self.drag_start.y;
+                const dx = self.mouse_pos.x - self.drag_start.x;
+                const dy = self.mouse_pos.y - self.drag_start.y;
 
                 if ((dx != 0) or (dy != 0)) {
                     dragged.changed = true;

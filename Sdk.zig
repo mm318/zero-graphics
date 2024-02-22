@@ -450,23 +450,12 @@ const CreateApplicationHtmlPageStep = struct {
     outfile: std.Build.LazyPath,
 
     pub fn create(sdk: *Sdk, app_name: []const u8, display_name: []const u8) *CreateApplicationHtmlPageStep {
-        // var cache = CacheBuilder.init(sdk.builder, "zero-graphics");
-        // cache.addBytes(app_name);
-        // cache.addBytes(display_name);
-        // const folder_path = cache.createAndGetPath() catch @panic("out of memory");
-        // const outfile_path = std.fs.path.join(sdk.builder.allocator, &[_][]const u8{
-        //     folder_path,
-        //     "index.htm",
-        // }) catch @panic("out of memory");
-        // defer sdk.builder.allocator.free(outfile_path);
-
         const run_step = sdk.builder.addRunArtifact(sdk.render_main_page_tool);
         const output = run_step.addOutputFileArg("index.htm");
         run_step.addArgs(&[_][]const u8{
             app_name,
             display_name,
         });
-        // run_step.step.dependOn(&sdk.render_main_page_tool.step);
 
         const ms = sdk.builder.allocator.create(CreateApplicationHtmlPageStep) catch @panic("out of memory");
         ms.* = CreateApplicationHtmlPageStep{

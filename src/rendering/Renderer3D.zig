@@ -85,7 +85,7 @@ pub fn init(resources: *ResourceManager, allocator: std.mem.Allocator) InitError
 
     // const static_geometry_shader = try
 
-    var static_geometry_shader = try resources.createShader(ResourceManager.BasicShader{
+    const static_geometry_shader = try resources.createShader(ResourceManager.BasicShader{
         .vertex_shader = static_vertex_source,
         .fragment_shader = static_alphatest_fragment_source,
         .attributes = glesh.attributes(attributes),
@@ -213,7 +213,7 @@ pub fn render(self: Self, viewProjectionMatrix: [4][4]f32) void {
 
     gles.depthFunc(gles.LEQUAL);
 
-    var uniforms = glesh.fetchUniforms(self.static_geometry_shader.instance.?, Uniforms);
+    const uniforms = glesh.fetchUniforms(self.static_geometry_shader.instance.?, Uniforms);
 
     gles.useProgram(self.static_geometry_shader.instance.?);
     gles.uniform1i(uniforms.uTexture, 0);

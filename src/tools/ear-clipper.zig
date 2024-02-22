@@ -62,9 +62,9 @@ pub fn EarClipper(
 
         fn signedPolygonArea(vertices: []const Vertex) f32 {
             var signed_area: f32 = 0.0;
-            var p0 = vertexPosition(vertices[vertices.len - 1]);
+            const p0 = vertexPosition(vertices[vertices.len - 1]);
             for (vertices) |pt| {
-                var p1 = vertexPosition(pt);
+                const p1 = vertexPosition(pt);
                 signed_area += cross2D(p0, p1);
             }
             return signed_area / 2;

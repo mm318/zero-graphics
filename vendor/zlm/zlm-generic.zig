@@ -96,7 +96,7 @@ pub fn SpecializeOn(comptime Real: type) type {
                 /// returns either a normalized vector (`length() = 1`) or `zero` if the vector
                 /// has length 0.
                 pub fn normalize(vec: Self) Self {
-                    var len = vec.length();
+                    const len = vec.length();
                     return if (len != 0.0)
                         vec.scale(1.0 / vec.length())
                     else
@@ -566,11 +566,11 @@ pub fn SpecializeOn(comptime Real: type) type {
 
             /// creates a rotation matrix around a certain axis.
             pub fn createAngleAxis(axis: Vec3, angle: Real) Self {
-                var cos = @cos(angle);
-                var sin = @sin(angle);
-                var x = axis.x;
-                var y = axis.y;
-                var z = axis.z;
+                const cos = @cos(angle);
+                const sin = @sin(angle);
+                const x = axis.x;
+                const y = axis.y;
+                const z = axis.z;
 
                 return Self{
                     .fields = [4][4]Real{

@@ -266,7 +266,7 @@ fn getGlyphInternal(self: *Self, font: *Font, codepoint: u21) !Glyph {
     const width: u15 = @as(u15, @intCast(ix1 - ix0));
     const height: u15 = @as(u15, @intCast(iy1 - iy0));
 
-    var gop = try font.glyphs.getOrPut(codepoint);
+    const gop = try font.glyphs.getOrPut(codepoint);
     if (!gop.found_existing or gop.value_ptr.width != width or gop.value_ptr.height != height) {
         const bitmap = try font.arena.allocator().alloc(u8, @as(usize, width) * height);
         errdefer font.arena.allocator().free(bitmap);
@@ -297,7 +297,7 @@ fn getGlyphInternal(self: *Self, font: *Font, codepoint: u21) !Glyph {
             texture_data[o + 3] = a;
         }
 
-        var texture = try self.resources.createTexture(.ui, ResourceManager.RawRgbaTexture{
+        const texture = try self.resources.createTexture(.ui, ResourceManager.RawRgbaTexture{
             .width = width,
             .height = height,
             .pixels = texture_data,
@@ -316,7 +316,7 @@ fn getGlyphInternal(self: *Self, font: *Font, codepoint: u21) !Glyph {
         //     left_side_bearing,
         // });
 
-        var glyph = Glyph{
+        const glyph = Glyph{
             .texture = texture,
             .pixels = bitmap,
             .width = width,
@@ -573,7 +573,7 @@ pub fn render(self: Self, screen_size: Size) void {
     gles.vertexAttribPointer(vertex_attributes.vColor, 4, gles.UNSIGNED_BYTE, gles.TRUE, @sizeOf(Vertex), @as(?*const anyopaque, @ptrFromInt(@offsetOf(Vertex, "r"))));
     gles.vertexAttribPointer(vertex_attributes.vUV, 2, gles.FLOAT, gles.FALSE, @sizeOf(Vertex), @as(?*const anyopaque, @ptrFromInt(@offsetOf(Vertex, "u"))));
 
-    var uniforms = glesh.fetchUniforms(self.shader_program.instance.?, Uniforms);
+    const uniforms = glesh.fetchUniforms(self.shader_program.instance.?, Uniforms);
 
     gles.useProgram(self.shader_program.instance.?);
     gles.uniform2i(uniforms.uScreenSize, screen_size.width, screen_size.height);
@@ -745,7 +745,7 @@ pub fn appendTriangles(self: *Self, texture: ?*ResourceManager.Texture, triangle
 /// 2---3
 /// ```
 pub fn fillQuad(self: *Self, corners: [4]Point, color: Color) DrawError!void {
-    var real_corners: [4]Point = undefined;
+    const real_corners: [4]Point = undefined;
     for (real_corners, 0..) |*dst, i| {
         dst.* = self.scalePoint(corners[i]);
     }
@@ -950,7 +950,7 @@ pub fn drawTriangle(self: *Self, tris: [3]Point, color: Color) DrawError!void {
 }
 
 pub fn drawTrianglePixels(self: *Self, tris: [3]Point, color: Color) DrawError!void {
-    var verts: [3]Vertex = undefined;
+    const verts: [3]Vertex = undefined;
     for (verts, 0..) |*vert, i| {
         vert.* = Vertex.init(tris[i].x, tris[i].y, color);
     }

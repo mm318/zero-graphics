@@ -122,10 +122,10 @@ pub fn strWidth(str: []const u8, am_width: AmbiguousWidth) !usize {
 /// centers `str` in a new string of width `total_width` (in display cells) using `pad` as padding.
 /// Caller must free returned bytes.
 pub fn center(allocator: mem.Allocator, str: []const u8, total_width: usize, pad: []const u8) ![]u8 {
-    var str_width = try strWidth(str, .half);
+    const str_width = try strWidth(str, .half);
     if (str_width > total_width) return error.StrTooLong;
 
-    var pad_width = try strWidth(pad, .half);
+    const pad_width = try strWidth(pad, .half);
     if (pad_width > total_width or str_width + pad_width > total_width) return error.PadTooLong;
 
     const margin_width = @divFloor((total_width - str_width), 2);
@@ -157,10 +157,10 @@ pub fn center(allocator: mem.Allocator, str: []const u8, total_width: usize, pad
 /// padLeft returns a new string of width `total_width` (in display cells) using `pad` as padding
 /// on the left side.  Caller must free returned bytes.
 pub fn padLeft(allocator: mem.Allocator, str: []const u8, total_width: usize, pad: []const u8) ![]u8 {
-    var str_width = try strWidth(str, .half);
+    const str_width = try strWidth(str, .half);
     if (str_width > total_width) return error.StrTooLong;
 
-    var pad_width = try strWidth(pad, .half);
+    const pad_width = try strWidth(pad, .half);
     if (pad_width > total_width or str_width + pad_width > total_width) return error.PadTooLong;
 
     const margin_width = total_width - str_width;
@@ -185,10 +185,10 @@ pub fn padLeft(allocator: mem.Allocator, str: []const u8, total_width: usize, pa
 /// padRight returns a new string of width `total_width` (in display cells) using `pad` as padding
 /// on the right side.  Caller must free returned bytes.
 pub fn padRight(allocator: mem.Allocator, str: []const u8, total_width: usize, pad: []const u8) ![]u8 {
-    var str_width = try strWidth(str, .half);
+    const str_width = try strWidth(str, .half);
     if (str_width > total_width) return error.StrTooLong;
 
-    var pad_width = try strWidth(pad, .half);
+    const pad_width = try strWidth(pad, .half);
     if (pad_width > total_width or str_width + pad_width > total_width) return error.PadTooLong;
 
     const margin_width = total_width - str_width;
@@ -327,9 +327,9 @@ test "display_width padRight" {
 
 test "display_width wrap" {
     var allocator = std.testing.allocator;
-    var input = "The quick brown fox\r\njumped over the lazy dog!";
-    var got = try wrap(allocator, input, 10, 3);
+    const input = "The quick brown fox\r\njumped over the lazy dog!";
+    const got = try wrap(allocator, input, 10, 3);
     defer allocator.free(got);
-    var want = "The quick\n brown \nfox jumped\n over the\n lazy dog\n!";
+    const want = "The quick\n brown \nfox jumped\n over the\n lazy dog\n!";
     try testing.expectEqualStrings(want, got);
 }

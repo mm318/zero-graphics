@@ -77,7 +77,7 @@ pub fn init(resources: *ResourceManager, allocator: std.mem.Allocator) InitError
     const vertex_buffer = try resources.createBuffer(ResourceManager.EmptyBuffer{});
     errdefer resources.destroyBuffer(vertex_buffer);
 
-    var self = Self{
+    const self = Self{
         .resources = resources,
         .shader_program = shader_program,
         .vertices = std.ArrayList(Vertex).init(allocator),
@@ -121,7 +121,7 @@ pub fn render(self: Self, viewProjectionMatrix: Mat4) void {
     gl.vertexAttribPointer(types.ResourceManager.Geometry.attributes.vNormal, 3, gl.FLOAT, gl.TRUE, @sizeOf(Vertex), @as(?*const anyopaque, @ptrFromInt(@offsetOf(Vertex, "nx"))));
     gl.vertexAttribPointer(types.ResourceManager.Geometry.attributes.vUV, 2, gl.FLOAT, gl.FALSE, @sizeOf(Vertex), @as(?*const anyopaque, @ptrFromInt(@offsetOf(Vertex, "u"))));
 
-    var uniforms = glesh.fetchUniforms(self.shader_program.instance.?, Uniforms);
+    const uniforms = glesh.fetchUniforms(self.shader_program.instance.?, Uniforms);
 
     gl.useProgram(self.shader_program.instance.?);
     gl.uniformMatrix4fv(uniforms.uViewProjMatrix, 1, gl.FALSE, @as([*]const f32, @ptrCast(&viewProjectionMatrix)));
@@ -175,7 +175,7 @@ fn resetDrawCall(self: *Self, dc: DrawCall) void {
 }
 
 pub fn fillTriangle(self: *Self, v0: Vec3, v1: Vec3, v2: Vec3, color: Color) !void {
-    var dc = self.beginDrawCall(gl.TRIANGLE_STRIP);
+    const dc = self.beginDrawCall(gl.TRIANGLE_STRIP);
     errdefer self.resetDrawCall(dc);
 
     try self.vertices.append(vertex(v0, color));
@@ -186,7 +186,7 @@ pub fn fillTriangle(self: *Self, v0: Vec3, v1: Vec3, v2: Vec3, color: Color) !vo
 }
 
 pub fn drawLine(self: *Self, v0: Vec3, v1: Vec3, color: Color) !void {
-    var dc = self.beginDrawCall(gl.LINE_STRIP);
+    const dc = self.beginDrawCall(gl.LINE_STRIP);
     errdefer self.resetDrawCall(dc);
 
     try self.vertices.append(vertex(v0, color));
@@ -196,7 +196,7 @@ pub fn drawLine(self: *Self, v0: Vec3, v1: Vec3, color: Color) !void {
 }
 
 pub fn drawTriangle(self: *Self, v0: Vec3, v1: Vec3, v2: Vec3, color: Color) !void {
-    var dc = self.beginDrawCall(gl.LINE_STRIP);
+    const dc = self.beginDrawCall(gl.LINE_STRIP);
     errdefer self.resetDrawCall(dc);
 
     try self.vertices.append(vertex(v0, color));

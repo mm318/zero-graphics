@@ -447,7 +447,7 @@ pub fn filter(self: *Self) Filter {
 }
 
 fn fetchFromInput(ctx: *anyopaque) Filter.Error!?Event {
-    const input = @as(*Self, @ptrCast(@alignCast(@alignOf(Self), ctx)));
+    const input = @as(*Self, @ptrCast(@alignCast(ctx)));
     return input.fetch();
 }
 
@@ -483,7 +483,7 @@ pub const Filter = struct {
             }
 
             fn fetchFunc(ctx: *anyopaque) Error!?Event {
-                const instance = @as(*Instance, @ptrCast(@alignCast(@alignOf(Instance), ctx)));
+                const instance = @as(*Instance, @ptrCast(@alignCast(ctx)));
                 while (try instance.source.fetch()) |event| {
                     if (try callback(instance.target, event))
                         continue;

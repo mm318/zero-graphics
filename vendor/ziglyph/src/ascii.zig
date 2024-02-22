@@ -184,7 +184,7 @@ const combinedTable = init: {
 
     comptime var table: [256]u9 = undefined;
     comptime var i = 0;
-    inline while (i < 128) : (i += 1) {
+    while (i < 128) : (i += 1) {
         table[i] =
             @as(u9, alpha[i]) << @intFromEnum(tIndex.Alpha) |
             @as(u9, hex[i]) << @intFromEnum(tIndex.Hex) |

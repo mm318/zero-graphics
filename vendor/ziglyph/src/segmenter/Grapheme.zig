@@ -279,7 +279,7 @@ fn cpIsIgnorable(cp: u21) bool {
 
 test "Segmentation GraphemeIterator" {
     var path_buf: [1024]u8 = undefined;
-    var path = try std.fs.cwd().realpath(".", &path_buf);
+    const path = try std.fs.cwd().realpath(".", &path_buf);
     // Check if testing in this library path.
     if (!mem.endsWith(u8, path, "ziglyph")) return;
 
@@ -378,7 +378,7 @@ test "Segmentation comptime GraphemeIterator" {
 
 test "Segmentation StreamingGraphemeIterator" {
     var path_buf: [1024]u8 = undefined;
-    var path = try std.fs.cwd().realpath(".", &path_buf);
+    const path = try std.fs.cwd().realpath(".", &path_buf);
     // Check if testing in this library path.
     if (!mem.endsWith(u8, path, "ziglyph")) return;
 

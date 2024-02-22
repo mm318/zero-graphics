@@ -134,7 +134,7 @@ const ResourceDataHandle = struct {
     pub fn createFrom(ptr: anytype) ResourceDataHandle {
         const P = @TypeOf(ptr);
         const T = std.meta.Child(P);
-        var safe_ptr: *T = ptr;
+        const safe_ptr: *T = ptr;
         return ResourceDataHandle{
             .type_id = typeId(T),
             .pointer = @intFromPtr(safe_ptr),
@@ -575,10 +575,10 @@ pub const Shader = struct {
         var sources = std.ArrayList([]const u8).init(rm.allocator);
         defer sources.deinit();
 
-        var fragment_shader = compile(&sources, data, gl.FRAGMENT_SHADER) catch return error.InvalidFormat;
+        const fragment_shader = compile(&sources, data, gl.FRAGMENT_SHADER) catch return error.InvalidFormat;
         defer gl.deleteShader(fragment_shader);
 
-        var vertex_shader = compile(&sources, data, gl.VERTEX_SHADER) catch return error.InvalidFormat;
+        const vertex_shader = compile(&sources, data, gl.VERTEX_SHADER) catch return error.InvalidFormat;
         defer gl.deleteShader(vertex_shader);
 
         const program = gl.createProgram();

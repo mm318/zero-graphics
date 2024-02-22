@@ -96,7 +96,7 @@ fn glesDebugProc(
     const message = message_ptr[0..@as(usize, @intCast(length))];
 
     const fmt_string = "[{s}] [{s}] {s}";
-    var fmt_arg = .{ source_name, type_name, message };
+    const fmt_arg = .{ source_name, type_name, message };
 
     switch (severity) {
         debug.DEBUG_SEVERITY_HIGH_KHR => logger.err(fmt_string, fmt_arg),
@@ -160,7 +160,7 @@ pub fn attributes(comptime list: anytype) []const Attribute {
 
     comptime var items: [fields.len]Attribute = undefined;
     comptime {
-        inline for (fields, 0..) |attrib, i| {
+        for (fields, 0..) |attrib, i| {
             items[i] = Attribute{
                 .name = attrib.name[0.. :0],
                 .index = @field(list, attrib.name),
