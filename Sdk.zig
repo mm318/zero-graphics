@@ -16,9 +16,6 @@ const Sdk = @This();
 const TemplateStep = @import("vendor/ztt/src/TemplateStep.zig");
 
 fn requiresSingleThreaded(target: std.Build.ResolvedTarget) bool {
-    if (target.result.cpu.arch == .arm) { // see https://github.com/ziglang/zig/issues/6573
-        return true;
-    }
     if (target.result.cpu.arch == .wasm32) { // always
         return true;
     }
@@ -242,7 +239,9 @@ pub const Application = struct {
         }
     }
 
-    pub fn compileForWeb(app: *Application, target: std.Build.ResolvedTarget, mode: std.builtin.OptimizeMode) *AppCompilation {
+    pub fn compileForWeb(app: *Application, mode: std.builtin.OptimizeMode) *AppCompilation {
+        const target = std.Build.resolveTargetQuery(app.sdk.builder, .{ .cpu_arch = .wasm32, .os_tag = .freestanding, .abi = .musl });
+
         const app_pkg = std.Build.Module.Import{
             .name = "application",
             .module = app.sdk.builder.createModule(.{
@@ -307,6 +306,7 @@ pub const Application = struct {
             .optimize = mode,
             .single_threaded = requiresSingleThreaded(target),
         });
+        exe.linkage = .static;
         exe.rdynamic = true;
         exe.root_module.addImport("build-options", build_options);
         app.prepareExe(exe, app_pkg, features);

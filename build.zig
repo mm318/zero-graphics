@@ -28,7 +28,7 @@ pub fn build(b: *std.Build) !void {
         const app = sdk.createApplication("zero_init_app", "tools/zero-init/template/src/main.zig");
         app.setDisplayName("ZeroGraphics Init App");
         app.setPackageName("net.random_projects.zero_graphics.init_app");
-        b.getInstallStep().dependOn(app.compileForWeb(target, mode).getStep());
+        b.getInstallStep().dependOn(app.compileForWeb(mode).getStep());
     }
 
     {
@@ -70,7 +70,7 @@ pub fn build(b: *std.Build) !void {
 
     // Build wasm application
     {
-        const wasm_build = app.compileForWeb(target, mode);
+        const wasm_build = app.compileForWeb(mode);
         wasm_build.install();
 
         const serve = wasm_build.run();
