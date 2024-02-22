@@ -360,8 +360,12 @@ pub const AppCompilation = struct {
                     comp.app.display_name orelse "Untitled Application",
                 );
 
-                const install_html_page = comp.sdk.builder.addInstallFileWithDir(.{ .generated = &app_html_page.outfile }, web_folder, file_name);
-                install_html_page.step.dependOn(&app_html_page.step);
+                const install_html_page = comp.sdk.builder.addInstallFileWithDir(
+                    app_html_page.outfile,
+                    web_folder,
+                    file_name,
+                );
+                install_html_page.step.dependOn(&app_html_page.step.step);
 
                 install_step.step.dependOn(&install_html_page.step);
 
@@ -441,56 +445,36 @@ const CreateAppMetaStep = struct {
 };
 
 const CreateApplicationHtmlPageStep = struct {
-    step: std.Build.Step,
-
     sdk: *Sdk,
-    app_name: []const u8,
-    display_name: []const u8,
-
-    outfile: std.Build.GeneratedFile,
+    step: *std.Build.Step.Run,
+    outfile: std.Build.LazyPath,
 
     pub fn create(sdk: *Sdk, app_name: []const u8, display_name: []const u8) *CreateApplicationHtmlPageStep {
+        // var cache = CacheBuilder.init(sdk.builder, "zero-graphics");
+        // cache.addBytes(app_name);
+        // cache.addBytes(display_name);
+        // const folder_path = cache.createAndGetPath() catch @panic("out of memory");
+        // const outfile_path = std.fs.path.join(sdk.builder.allocator, &[_][]const u8{
+        //     folder_path,
+        //     "index.htm",
+        // }) catch @panic("out of memory");
+        // defer sdk.builder.allocator.free(outfile_path);
+
+        const run_step = sdk.builder.addRunArtifact(sdk.render_main_page_tool);
+        const output = run_step.addOutputFileArg("index.htm");
+        run_step.addArgs(&[_][]const u8{
+            app_name,
+            display_name,
+        });
+        // run_step.step.dependOn(&sdk.render_main_page_tool.step);
+
         const ms = sdk.builder.allocator.create(CreateApplicationHtmlPageStep) catch @panic("out of memory");
         ms.* = CreateApplicationHtmlPageStep{
-            .step = std.Build.Step.init(.{
-                .id = .custom,
-                .name = "Create application html page",
-                .owner = sdk.builder,
-                .makeFn = make,
-            }),
-
             .sdk = sdk,
-            .app_name = sdk.builder.dupe(app_name),
-            .display_name = sdk.builder.dupe(display_name),
-
-            .outfile = std.Build.GeneratedFile{ .step = &ms.step },
+            .step = run_step,
+            .outfile = output,
         };
-        ms.step.dependOn(&sdk.render_main_page_tool.step);
         return ms;
-    }
-
-    fn make(step: *std.Build.Step, prog_node: *std.Progress.Node) anyerror!void {
-        _ = prog_node;
-        const self = @fieldParentPtr(CreateApplicationHtmlPageStep, "step", step);
-
-        var cache = CacheBuilder.init(self.sdk.builder, "zero-graphics");
-
-        cache.addBytes(self.app_name);
-        cache.addBytes(self.display_name);
-
-        const folder_path = try cache.createAndGetPath();
-
-        self.outfile.path = try std.fs.path.join(self.sdk.builder.allocator, &[_][]const u8{
-            folder_path,
-            "index.htm",
-        });
-
-        _ = self.sdk.builder.run(&[_][]const u8{
-            self.sdk.render_main_page_tool.getEmittedBin().getPath(self.sdk.builder),
-            self.outfile.path.?,
-            self.app_name,
-            self.display_name,
-        });
     }
 };
 
