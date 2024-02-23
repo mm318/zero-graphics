@@ -3,7 +3,7 @@ const builtin = @import("builtin");
 const logger = std.log.scoped(.wasm_backend);
 
 const gles = @import("../gl_es_2v0.zig");
-const zerog = @import("../zero-graphics.zig");
+const zerog = @import("zero-graphics");
 pub const Application = @import("application");
 pub const CoreApplication = zerog.CoreApplication;
 pub const build_options = @import("build-options");
