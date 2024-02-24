@@ -24,19 +24,11 @@ fn requiresSingleThreaded(target: std.Build.ResolvedTarget) bool {
 
 const web_folder = std.Build.InstallDir{ .custom = "www" };
 
-const LibraryPackageOpts = struct {
-    zigimg: std.Build.Module.Import,
-    ziglyph: std.Build.Module.Import,
-    zigstr: std.Build.Module.Import,
-    text_editor: std.Build.Module.Import,
-    zero_graphics_pkg_opts: std.Build.Module.CreateOptions,
-};
-
 builder: *std.Build,
+dummy_server: *std.Build.Step.Compile,
 install_web_sources: []*std.Build.Step.InstallFile,
 render_main_page_tool: *std.Build.Step.Compile,
-library_pkg_opts: ?LibraryPackageOpts,
-dummy_server: *std.Build.Step.Compile,
+zero_graphics_pkg: ?*std.Build.Module,
 
 pub fn init(builder: *std.Build, target: std.Build.ResolvedTarget, mode: std.builtin.OptimizeMode) *Sdk {
     const sdk = builder.allocator.create(Sdk) catch @panic("out of memory");
@@ -54,8 +46,8 @@ pub fn init(builder: *std.Build, target: std.Build.ResolvedTarget, mode: std.bui
             .root_source_file = sdkPath("/tools/render-ztt-page.zig"),
             .optimize = mode,
         }),
-        .library_pkg_opts = null,
         .dummy_server = undefined,
+        .zero_graphics_pkg = null,
     };
 
     const html_module = builder.addModule("html", .{
@@ -83,43 +75,42 @@ fn validateName(name: []const u8, allowed_chars: []const u8) void {
     }
 }
 
-pub fn createLibraryPackage(sdk: *Sdk) *std.Build.Module {
-    if (sdk.library_pkg_opts == null) {
-        sdk.library_pkg_opts = undefined;
-        sdk.library_pkg_opts.?.zigimg = std.Build.Module.Import{
+pub fn getLibraryPackage(sdk: *Sdk) *std.Build.Module {
+    if (sdk.zero_graphics_pkg == null) {
+        const zigimg = std.Build.Module.Import{
             .name = "zigimg",
             .module = sdk.builder.createModule(.{ .root_source_file = sdkPath("/vendor/zigimg/zigimg.zig") }),
         };
-        sdk.library_pkg_opts.?.ziglyph = std.Build.Module.Import{
+        const ziglyph = std.Build.Module.Import{
             .name = "ziglyph",
             .module = sdk.builder.createModule(.{ .root_source_file = sdkPath("/vendor/ziglyph/src/ziglyph.zig") }),
         };
-        sdk.library_pkg_opts.?.zigstr = std.Build.Module.Import{
+        const zigstr = std.Build.Module.Import{
             .name = "zigstr",
             .module = sdk.builder.createModule(.{
                 .root_source_file = sdkPath("/vendor/zigstr/src/Zigstr.zig"),
-                .imports = &.{sdk.library_pkg_opts.?.ziglyph},
+                .imports = &.{ziglyph},
             }),
         };
-        sdk.library_pkg_opts.?.text_editor = std.Build.Module.Import{
+        const text_editor = std.Build.Module.Import{
             .name = "TextEditor",
             .module = sdk.builder.createModule(.{
                 .root_source_file = sdkPath("/vendor/text-editor/src/TextEditor.zig"),
-                .imports = &.{sdk.library_pkg_opts.?.ziglyph},
+                .imports = &.{ziglyph},
             }),
         };
-        sdk.library_pkg_opts.?.zero_graphics_pkg_opts = .{
+        sdk.zero_graphics_pkg = sdk.builder.createModule(.{
             .root_source_file = sdkPath("/src/zero-graphics.zig"),
             .imports = &[_]std.Build.Module.Import{
-                sdk.library_pkg_opts.?.zigimg,
-                sdk.library_pkg_opts.?.ziglyph,
-                sdk.library_pkg_opts.?.zigstr,
-                sdk.library_pkg_opts.?.text_editor,
+                zigimg,
+                ziglyph,
+                zigstr,
+                text_editor,
             },
-        };
+        });
     }
 
-    return sdk.builder.createModule(sdk.library_pkg_opts.?.zero_graphics_pkg_opts);
+    return sdk.zero_graphics_pkg.?;
 }
 
 pub fn createApplication(sdk: *Sdk, name: []const u8, root_file: []const u8) *Application {
@@ -138,7 +129,7 @@ pub fn createApplicationSource(sdk: *Sdk, name: []const u8, root_file: std.Build
         .app_deps = std.ArrayList(std.Build.Module.Import).init(sdk.builder.allocator),
         .framework_pkg = std.Build.Module.Import{
             .name = "zero-graphics",
-            .module = sdk.createLibraryPackage(),
+            .module = sdk.getLibraryPackage(),
         },
         .meta_pkg = std.Build.Module.Import{
             .name = "application-meta",

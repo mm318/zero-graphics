@@ -66,7 +66,7 @@ pub fn build(b: *std.Build) !void {
     const app = sdk.createApplication("demo_application", "examples/features/feature-demo.zig");
     app.setDisplayName("ZeroGraphics Demo");
     app.setPackageName("net.random_projects.zero_graphics.demo");
-    app.addPackage("zero-graphics", sdk.createLibraryPackage());
+    app.addPackage("zero-graphics", sdk.getLibraryPackage());
     app.addPackage("zlm", zlm_module);
 
     // Build wasm application
