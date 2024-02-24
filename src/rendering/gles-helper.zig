@@ -28,7 +28,7 @@ fn QueryExtension(comptime query: []const []const u8) type {
 
 pub fn queryExtensions(comptime query: []const []const u8) QueryExtension(query) {
     var exts = std.mem.zeroes(QueryExtension(query));
-    if (builtin.cpu.arch != .wasm32) {
+    if (builtin.target.cpu.arch != .wasm32) {
         const extension_list = std.mem.span(zero_graphics.gles.getString(zero_graphics.gles.EXTENSIONS)) orelse return exts;
         var iterator = std.mem.split(u8, extension_list, " ");
         while (iterator.next()) |extension| {
@@ -110,8 +110,8 @@ fn glesDebugProc(
 pub fn fetchUniforms(program: gles.GLuint, comptime T: type) T {
     var t: T = undefined;
     inline for (std.meta.fields(T)) |fld| {
-        const name = fld.name ++ &[_]u8{0};
-        @field(t, fld.name) = gles.getUniformLocation(program, name.ptr);
+        const name: [:0]const u8 = fld.name ++ "";
+        @field(t, fld.name) = gles.getUniformLocation(program, name);
     }
     return t;
 }
@@ -142,7 +142,7 @@ pub fn disableAttributesSlice(attribs: []const Attribute) void {
 
 /// A shader attribute.
 pub const Attribute = struct {
-    name: []const u8,
+    name: [:0]const u8,
     index: gles.GLuint,
 };
 
@@ -162,7 +162,7 @@ pub fn attributes(comptime list: anytype) []const Attribute {
     comptime {
         for (fields, 0..) |attrib, i| {
             items[i] = Attribute{
-                .name = attrib.name ++ &[_]u8{0},
+                .name = attrib.name ++ "",
                 .index = @field(list, attrib.name),
             };
         }

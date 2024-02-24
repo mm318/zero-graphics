@@ -300,14 +300,14 @@ pub const Application = struct {
         } else null;
         const build_options = app.sdk.builder.createModule(.{ .root_source_file = options_file.?.getPath() });
 
-        const exe = app.sdk.builder.addSharedLibrary(.{
+        const exe = app.sdk.builder.addExecutable(.{
             .name = app.name,
             .target = target,
             .root_source_file = sdkPath("/src/main/wasm.zig"),
             .optimize = mode,
             .single_threaded = requiresSingleThreaded(target),
         });
-        exe.linkage = .static;
+        exe.entry = .disabled;
         exe.rdynamic = true;
         exe.root_module.addImport("build-options", build_options);
         app.prepareExe(exe, app_pkg, features);
