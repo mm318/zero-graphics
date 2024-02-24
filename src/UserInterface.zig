@@ -644,8 +644,8 @@ fn findOrAllocWidget(self: *UserInterface, widget_type: ControlType, id: WidgetI
 /// Returns a unqiue identifier for each type.
 fn typeId(comptime T: type) usize {
     _ = T;
-    return comptime @intFromPtr(&struct {
-        var i: u8 = 0;
+    return @intFromPtr(&struct {
+        const i: u8 = 0;
     }.i);
 }
 
@@ -728,7 +728,7 @@ pub const Builder = struct {
             pub const Control = blk: {
                 for (std.meta.fields(Widget.Control)) |fld| {
                     if (std.mem.eql(u8, fld.name, @tagName(widget)))
-                        break :blk fld.field_type;
+                        break :blk fld.type;
                 }
                 @compileError("Unknown widget type:");
             };
@@ -1399,7 +1399,7 @@ pub fn render(self: UserInterface) !void {
                     const scroll_extra_l = 32;
                     const view_width = widget.bounds.width - 2 * text_padding;
 
-                    const l = std.math.min(view_width, scroll_padding_l);
+                    const l = @min(view_width, scroll_padding_l);
                     const r = clampSub(view_width, scroll_padding_r);
 
                     const civ = clampSub(cursor_position, control.scroll_offset);
@@ -1662,7 +1662,7 @@ const StringBuffer = union(enum) {
         switch (self.*) {
             .allocated => |*list| {
                 try list.resize(string.len);
-                std.mem.copy(u8, list.items, string);
+                std.mem.copyForwards(u8, list.items, string);
             },
             else => {
                 if (string.len <= ArrayBuffer.max_len) {
@@ -1672,13 +1672,13 @@ const StringBuffer = union(enum) {
                             .len = string.len,
                         },
                     };
-                    std.mem.copy(u8, self.self_contained.items[0..string.len], string);
+                    std.mem.copyForwards(u8, self.self_contained.items[0..string.len], string);
                 } else {
                     self.* = Self{
                         .allocated = std.ArrayList(u8).init(allocator),
                     };
                     try self.allocated.resize(string.len);
-                    std.mem.copy(u8, self.allocated.items, string);
+                    std.mem.copyForwards(u8, self.allocated.items, string);
                 }
             },
         }

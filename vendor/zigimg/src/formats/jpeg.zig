@@ -73,13 +73,13 @@ const JFIFHeader = struct {
         // Read the first APP0 header.
         const reader = stream.reader();
         try stream.seekTo(2);
-        const maybe_app0_marker = try reader.readIntBig(u16);
+        const maybe_app0_marker = try reader.readInt(u16, .big);
         if (maybe_app0_marker != @intFromEnum(Markers.application0)) {
             return error.App0MarkerDoesNotExist;
         }
 
         // Header length
-        _ = try reader.readIntBig(u16);
+        _ = try reader.readInt(u16, .big);
 
         var identifier_buffer: [4]u8 = undefined;
         _ = try reader.read(identifier_buffer[0..]);
@@ -91,10 +91,10 @@ const JFIFHeader = struct {
         // NUL byte after JFIF
         _ = try reader.readByte();
 
-        const jfif_revision = try reader.readIntBig(u16);
+        const jfif_revision = try reader.readInt(u16, .big);
         const density_unit = @as(DensityUnit, @enumFromInt(try reader.readByte()));
-        const x_density = try reader.readIntBig(u16);
-        const y_density = try reader.readIntBig(u16);
+        const x_density = try reader.readInt(u16, .big);
+        const y_density = try reader.readInt(u16, .big);
 
         const thumbnailWidth = try reader.readByte();
         const thumbnailHeight = try reader.readByte();
@@ -104,7 +104,7 @@ const JFIFHeader = struct {
         }
 
         // Make sure there are no application markers after us.
-        if (((try reader.readIntBig(u16)) & 0xFFF0) == @intFromEnum(Markers.application0)) {
+        if (((try reader.readInt(u16, .big)) & 0xFFF0) == @intFromEnum(Markers.application0)) {
             return error.ExtraneousApplicationMarker;
         }
 
@@ -153,7 +153,7 @@ const QuantizationTable = union(enum) {
 
                 var offset: usize = 0;
                 while (offset < 64) : (offset += 1) {
-                    const value = try reader.readIntBig(u16);
+                    const value = try reader.readInt(u16, .big);
                     table.q16[ZigzagOffsets[offset]] = value;
                 }
 
@@ -362,13 +362,13 @@ const FrameHeader = struct {
     components: []Component,
 
     pub fn read(allocator: Allocator, reader: Image.Stream.Reader) ImageReadError!FrameHeader {
-        var segment_size = try reader.readIntBig(u16);
+        var segment_size = try reader.readInt(u16, .big);
         if (JPEG_DEBUG) std.debug.print("StartOfFrame: frame size = 0x{X}\n", .{segment_size});
         segment_size -= 2;
 
         const sample_precision = try reader.readByte();
-        const row_count = try reader.readIntBig(u16);
-        const samples_per_row = try reader.readIntBig(u16);
+        const row_count = try reader.readInt(u16, .big);
+        const samples_per_row = try reader.readInt(u16, .big);
 
         const component_count = try reader.readByte();
 
@@ -444,7 +444,7 @@ const ScanHeader = struct {
     approximation_low: u4,
 
     pub fn read(reader: Image.Stream.Reader) ImageReadError!ScanHeader {
-        var segment_size = try reader.readIntBig(u16);
+        var segment_size = try reader.readInt(u16, .big);
         if (JPEG_DEBUG) std.debug.print("StartOfScan: segment size = 0x{X}\n", .{segment_size});
         segment_size -= 2;
 
@@ -712,8 +712,8 @@ const Frame = struct {
         };
         errdefer self.deinit();
 
-        var marker = try reader.readIntBig(u16);
-        while (marker != @intFromEnum(Markers.start_of_scan)) : (marker = try reader.readIntBig(u16)) {
+        var marker = try reader.readInt(u16, .big);
+        while (marker != @intFromEnum(Markers.start_of_scan)) : (marker = try reader.readInt(u16, .big)) {
             if (JPEG_DEBUG) std.debug.print("Frame: Parsing marker value: 0x{X}\n", .{marker});
 
             switch (@as(Markers, @enumFromInt(marker))) {
@@ -726,7 +726,7 @@ const Frame = struct {
             }
         }
 
-        while (marker == @intFromEnum(Markers.start_of_scan)) : (marker = try reader.readIntBig(u16)) {
+        while (marker == @intFromEnum(Markers.start_of_scan)) : (marker = try reader.readInt(u16, .big)) {
             try self.parseScan(reader);
         }
 
@@ -740,13 +740,13 @@ const Frame = struct {
     }
 
     pub fn deinit(self: *Frame) void {
-        for (self.dc_huffman_tables) |*maybe_huffman_table| {
+        for (&self.dc_huffman_tables) |*maybe_huffman_table| {
             if (maybe_huffman_table.*) |*huffman_table| {
                 huffman_table.deinit();
             }
         }
 
-        for (self.ac_huffman_tables) |*maybe_huffman_table| {
+        for (&self.ac_huffman_tables) |*maybe_huffman_table| {
             if (maybe_huffman_table.*) |*huffman_table| {
                 huffman_table.deinit();
             }
@@ -757,7 +757,7 @@ const Frame = struct {
     }
 
     fn parseDefineHuffmanTables(self: *Frame, reader: Image.Stream.Reader) ImageReadError!void {
-        var segment_size = try reader.readIntBig(u16);
+        var segment_size = try reader.readInt(u16, .big);
         if (JPEG_DEBUG) std.debug.print("DefineHuffmanTables: segment size = 0x{X}\n", .{segment_size});
         segment_size -= 2;
 
@@ -912,7 +912,7 @@ pub const JPEG = struct {
     }
 
     fn parseDefineQuantizationTables(self: *JPEG, reader: Image.Stream.Reader) ImageReadError!void {
-        var segment_size = try reader.readIntBig(u16);
+        var segment_size = try reader.readInt(u16, .big);
         if (JPEG_DEBUG) std.debug.print("DefineQuantizationTables: segment size = 0x{X}\n", .{segment_size});
         segment_size -= 2;
 
@@ -961,13 +961,13 @@ pub const JPEG = struct {
         }
 
         const reader = stream.reader();
-        var marker = try reader.readIntBig(u16);
-        while (marker != @intFromEnum(Markers.end_of_image)) : (marker = try reader.readIntBig(u16)) {
+        var marker = try reader.readInt(u16, .big);
+        while (marker != @intFromEnum(Markers.end_of_image)) : (marker = try reader.readInt(u16, .big)) {
             if (JPEG_DEBUG) std.debug.print("Parsing marker value: 0x{X}\n", .{marker});
 
             if (marker >= @intFromEnum(Markers.application0) and marker < @intFromEnum(Markers.application0) + 16) {
                 if (JPEG_DEBUG) std.debug.print("Skipping application data segment\n", .{});
-                const application_data_length = try reader.readIntBig(u16);
+                const application_data_length = try reader.readInt(u16, .big);
                 try stream.seekBy(application_data_length - 2);
                 continue;
             }
@@ -1003,7 +1003,7 @@ pub const JPEG = struct {
                 .comment => {
                     if (JPEG_DEBUG) std.debug.print("Skipping comment segment\n", .{});
 
-                    const comment_length = try reader.readIntBig(u16);
+                    const comment_length = try reader.readInt(u16, .big);
                     try stream.seekBy(comment_length - 2);
                 },
 
@@ -1032,7 +1032,7 @@ pub const JPEG = struct {
 
     fn formatDetect(stream: *Image.Stream) ImageReadError!bool {
         const reader = stream.reader();
-        const maybe_start_of_image = try reader.readIntBig(u16);
+        const maybe_start_of_image = try reader.readInt(u16, .big);
         if (maybe_start_of_image != @intFromEnum(Markers.start_of_image)) {
             return false;
         }

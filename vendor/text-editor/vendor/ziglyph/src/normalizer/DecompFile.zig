@@ -257,7 +257,7 @@ pub fn compressToFile(self: *DecompFile, filename: []const u8) !void {
 
 pub fn compressTo(self: *DecompFile, writer: anytype) !void {
     var buf_writer = std.io.bufferedWriter(writer);
-    var out = std.io.bitWriter(.Little, buf_writer.writer());
+    var out = std.io.bitWriter(.little, buf_writer.writer());
 
     // For the UDDC registers, we want one register to represent each possible value in a single
     // entry; we will emit opcodes to modify these registers into the desired form to produce a

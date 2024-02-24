@@ -131,10 +131,10 @@ fn RgbMethods(comptime Self: type) type {
     const has_alpha_type = @hasField(Self, "a");
 
     return struct {
-        const RedT = std.meta.fieldInfo(Self, .r).field_type;
-        const GreenT = std.meta.fieldInfo(Self, .g).field_type;
-        const BlueT = std.meta.fieldInfo(Self, .b).field_type;
-        const AlphaT = if (has_alpha_type) std.meta.fieldInfo(Self, .a).field_type else void;
+        const RedT = std.meta.fieldInfo(Self, .r).type;
+        const GreenT = std.meta.fieldInfo(Self, .g).type;
+        const BlueT = std.meta.fieldInfo(Self, .b).type;
+        const AlphaT = if (has_alpha_type) std.meta.fieldInfo(Self, .a).type else void;
 
         pub fn initRgb(r: RedT, g: GreenT, b: BlueT) Self {
             return Self{
@@ -312,7 +312,7 @@ fn RgbMethods(comptime Self: type) type {
 
 fn RgbaMethods(comptime Self: type) type {
     return struct {
-        const T = std.meta.fieldInfo(Self, .r).field_type;
+        const T = std.meta.fieldInfo(Self, .r).type;
         const comp_bits = @typeInfo(T).Int.bits;
 
         pub fn initRgba(r: T, g: T, b: T, a: T) Self {
@@ -457,7 +457,7 @@ pub fn IndexedStorage(comptime T: type) type {
 
             // Since not all palette entries need to be filled we make sure
             // they are all zero at the start.
-            std.mem.set(Rgba32, res.palette, Rgba32.initRgba(0, 0, 0, 0));
+            @memset(res.palette, Rgba32.initRgba(0, 0, 0, 0));
             return res;
         }
 

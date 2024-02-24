@@ -223,7 +223,7 @@ pub fn compressToFile(self: *AllKeysFile, filename: []const u8) !void {
 
 pub fn compressTo(self: *AllKeysFile, writer: anytype) !void {
     var buf_writer = std.io.bufferedWriter(writer);
-    var out = std.io.bitWriter(.Little, buf_writer.writer());
+    var out = std.io.bitWriter(.little, buf_writer.writer());
 
     // Implicits
     std.debug.assert(self.implicits.items.len == 4); // we don't encode a length for implicits.

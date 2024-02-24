@@ -90,9 +90,9 @@ pub const Header = extern struct {
 
     fn encode(header: Header) [size]u8 {
         var result: [size]u8 = undefined;
-        std.mem.copy(u8, result[0..4], &correct_magic);
-        std.mem.writeIntBig(u32, result[4..8], header.width);
-        std.mem.writeIntBig(u32, result[8..12], header.height);
+        std.mem.copyForwards(u8, result[0..4], &correct_magic);
+        std.mem.writeInt(u32, result[4..8], header.width, .big);
+        std.mem.writeInt(u32, result[8..12], header.height, .big);
         result[12] = @intFromEnum(header.format);
         result[13] = @intFromEnum(header.colorspace);
         return result;
@@ -126,7 +126,7 @@ pub const QOI = struct {
     }
 
     pub fn formatDetect(stream: *Image.Stream) ImageReadError!bool {
-        var magic_buffer: [std.mem.len(Header.correct_magic)]u8 = undefined;
+        var magic_buffer: [Header.correct_magic.len]u8 = undefined;
 
         _ = try stream.read(magic_buffer[0..]);
 
@@ -186,7 +186,7 @@ pub const QOI = struct {
     }
 
     pub fn read(self: *Self, allocator: Allocator, stream: *Image.Stream) ImageReadError!color.PixelStorage {
-        var magic_buffer: [std.mem.len(Header.correct_magic)]u8 = undefined;
+        var magic_buffer: [Header.correct_magic.len]u8 = undefined;
 
         const reader = stream.reader();
 

@@ -211,7 +211,7 @@ pub fn update(app: *Application) !bool {
                 .height = 280,
             }, .{});
 
-            for (app.gui_data.check_group, 0..) |*checked, i| {
+            for (&app.gui_data.check_group, 0..) |*checked, i| {
                 var rect = zero_graphics.Rectangle{
                     .x = 160,
                     .y = 20 + 40 * @as(u15, @intCast(i)),
@@ -312,9 +312,9 @@ pub fn update(app: *Application) !bool {
                     startup_time = startup_time orelse zero_graphics.milliTimestamp();
 
                     const t = 0.001 * @as(f32, @floatFromInt(zero_graphics.milliTimestamp() - startup_time.?));
-                    const points: [3][2]f32 = undefined;
 
-                    for (points, 0..) |*pt, i| {
+                    var points: [3][2]f32 = undefined;
+                    for (&points, 0..) |*pt, i| {
                         const offset = @as(f32, @floatFromInt(i));
                         const mirror = @sin((1.0 + 0.2 * offset) * t + offset);
 
@@ -322,8 +322,8 @@ pub fn update(app: *Application) !bool {
                         pt[1] = mirror * @cos((0.1 * offset) * 0.4 * t + offset);
                     }
 
-                    const real_pt: [3]zero_graphics.Point = undefined;
-                    for (real_pt, 0..) |*dst, i| {
+                    var real_pt: [3]zero_graphics.Point = undefined;
+                    for (&real_pt, 0..) |*dst, i| {
                         const src = points[i];
                         dst.* = .{
                             .x = rectangle.x + @as(i16, @intFromFloat((0.5 + 0.5 * src[0]) * @as(f32, @floatFromInt(rectangle.width)))),
@@ -558,20 +558,20 @@ pub fn render(app: *Application) !void {
 
             const image_id = "Hello, TGA!";
 
-            try writer.writeIntLittle(u8, @as(u8, @intCast(image_id.len)));
-            try writer.writeIntLittle(u8, 0); // color map type = no color map
-            try writer.writeIntLittle(u8, 2); // image type = uncompressed true-color image
+            try writer.writeInt(u8, @as(u8, @intCast(image_id.len)), .little);
+            try writer.writeInt(u8, 0, .little); // color map type = no color map
+            try writer.writeInt(u8, 2, .little); // image type = uncompressed true-color image
             // color map spec
-            try writer.writeIntLittle(u16, 0); // first index
-            try writer.writeIntLittle(u16, 0); // length
-            try writer.writeIntLittle(u8, 0); // number of bits per pixel
+            try writer.writeInt(u16, 0, .little); // first index
+            try writer.writeInt(u16, 0, .little); // length
+            try writer.writeInt(u8, 0, .little); // number of bits per pixel
             // image spec
-            try writer.writeIntLittle(u16, 0); // x origin
-            try writer.writeIntLittle(u16, 0); // y origin
-            try writer.writeIntLittle(u16, core().screen_size.width); // width
-            try writer.writeIntLittle(u16, core().screen_size.height); // height
-            try writer.writeIntLittle(u8, 32); // bits per pixel
-            try writer.writeIntLittle(u8, 8); // 0…3 => alpha channel depth = 8, 4…7 => direction=bottom left
+            try writer.writeInt(u16, 0, .little); // x origin
+            try writer.writeInt(u16, 0, .little); // y origin
+            try writer.writeInt(u16, core().screen_size.width, .little); // width
+            try writer.writeInt(u16, core().screen_size.height, .little); // height
+            try writer.writeInt(u8, 32, .little); // bits per pixel
+            try writer.writeInt(u8, 8, .little); // 0…3 => alpha channel depth = 8, 4…7 => direction=bottom left
 
             try writer.writeAll(image_id);
             try writer.writeAll(""); // color map data \o/
@@ -617,7 +617,7 @@ const EditorData = struct {
             return;
         }
 
-        for (self.quad) |*pt| {
+        for (&self.quad) |*pt| {
             if (try app.editor.editPoint2D(pt, pt.*)) |motion| {
                 pt.* = motion;
             }

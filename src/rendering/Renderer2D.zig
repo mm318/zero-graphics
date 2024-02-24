@@ -408,7 +408,7 @@ const GlyphIterator = struct {
             return GlyphCmd{
                 .codepoint = codepoint.scalar,
 
-                .glyph_width = @as(u15, @intCast(std.math.max(0, scaleInt(glyph.advance_width, self.scale)))),
+                .glyph_width = @as(u15, @intCast(@max(0, scaleInt(glyph.advance_width, self.scale)))),
                 .glyph_height = self.font.getLineHeight(),
 
                 .texture = glyph.texture,
@@ -449,10 +449,10 @@ pub fn measureString(self: *Self, font: *const Font, text: []const u8) Rectangle
 
     var iterator = GlyphIterator.init(self, makeFontMut(font), text);
     while (iterator.next()) |glyph| {
-        min_dx = std.math.min(min_dx, glyph.quad_x);
-        min_dy = std.math.min(min_dy, glyph.quad_y);
-        max_dx = std.math.max(max_dx, glyph.quad_x + glyph.glyph_width);
-        max_dy = std.math.max(max_dy, glyph.quad_y + glyph.glyph_height);
+        min_dx = @min(min_dx, glyph.quad_x);
+        min_dy = @min(min_dy, glyph.quad_y);
+        max_dx = @max(max_dx, glyph.quad_x + glyph.glyph_width);
+        max_dy = @max(max_dy, glyph.quad_y + glyph.glyph_height);
     }
 
     return Rectangle{
@@ -601,10 +601,10 @@ pub fn render(self: Self, screen_size: Size) void {
                 const rect_right = rect.x + rect.width;
                 const rect_bottom = rect.y + rect.height;
 
-                const left = std.math.max(clip_rect.x, rect.x);
-                const top = std.math.max(clip_rect.y, rect.y);
-                const right = std.math.min(clip_right, rect_right);
-                const bottom = std.math.min(clip_bottom, rect_bottom);
+                const left = @max(clip_rect.x, rect.x);
+                const top = @max(clip_rect.y, rect.y);
+                const right = @min(clip_right, rect_right);
+                const bottom = @min(clip_bottom, rect_bottom);
 
                 const width = @as(u15, @intCast(if (right > left) right - left else 0));
                 const height = @as(u15, @intCast(if (bottom > top) bottom - top else 0));

@@ -7,10 +7,10 @@ const logger = std.log.scoped(.zerog_gles_helper);
 
 fn QueryExtension(comptime query: []const []const u8) type {
     var fields: [query.len]std.builtin.Type.StructField = undefined;
-    for (fields, 0..) |*fld, i| {
+    for (&fields, 0..) |*fld, i| {
         fld.* = std.builtin.Type.StructField{
             .name = query[i],
-            .field_type = bool,
+            .type = bool,
             .default_value = &false,
             .is_comptime = false,
             .alignment = @alignOf(bool),
@@ -110,8 +110,8 @@ fn glesDebugProc(
 pub fn fetchUniforms(program: gles.GLuint, comptime T: type) T {
     var t: T = undefined;
     inline for (std.meta.fields(T)) |fld| {
-        const name = comptime fld.name[0.. :0];
-        @field(t, fld.name) = gles.getUniformLocation(program, name);
+        const name = fld.name ++ &[_]u8{0};
+        @field(t, fld.name) = gles.getUniformLocation(program, name.ptr);
     }
     return t;
 }
@@ -142,7 +142,7 @@ pub fn disableAttributesSlice(attribs: []const Attribute) void {
 
 /// A shader attribute.
 pub const Attribute = struct {
-    name: [:0]const u8,
+    name: []const u8,
     index: gles.GLuint,
 };
 
@@ -162,7 +162,7 @@ pub fn attributes(comptime list: anytype) []const Attribute {
     comptime {
         for (fields, 0..) |attrib, i| {
             items[i] = Attribute{
-                .name = attrib.name[0.. :0],
+                .name = attrib.name ++ &[_]u8{0},
                 .index = @field(list, attrib.name),
             };
         }

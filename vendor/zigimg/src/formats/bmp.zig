@@ -234,7 +234,7 @@ pub const Bitmap = struct {
 
         // Read header size to figure out the header type, also TODO: Use PeekableStream when I understand how to use it
         const current_header_pos = try stream.getPos();
-        const header_size = try reader.readIntLittle(u32);
+        const header_size = try reader.readInt(u32, .little);
         try stream.seekTo(current_header_pos);
 
         // Read info header

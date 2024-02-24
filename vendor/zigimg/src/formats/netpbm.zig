@@ -135,7 +135,7 @@ fn loadBinaryBitmap(header: Header, data: []color.Grayscale1, reader: Image.Stre
     var data_index: usize = 0;
     const data_end = header.width * header.height;
 
-    var bit_reader = std.io.bitReader(.Big, reader);
+    var bit_reader = std.io.bitReader(.big, reader);
 
     while (data_index < data_end) : (data_index += 1) {
         // set bit is black, cleared bit is white
@@ -166,7 +166,7 @@ fn loadAsciiBitmap(header: Header, data: []color.Grayscale1, reader: Image.Strea
 
 fn readLinearizedValue(reader: Image.Stream.Reader, max_value: usize) ImageReadError!u8 {
     return if (max_value > 255)
-        @as(u8, @truncate(255 * @as(usize, try reader.readIntBig(u16)) / max_value))
+        @as(u8, @truncate(255 * @as(usize, try reader.readInt(u16, .big)) / max_value))
     else
         @as(u8, @truncate(255 * @as(usize, try reader.readByte()) / max_value));
 }
@@ -180,7 +180,7 @@ fn loadBinaryGraymap(header: Header, pixels: *color.PixelStorage, reader: Image.
         }
     } else {
         while (data_index < data_end) : (data_index += 1) {
-            pixels.grayscale16[data_index] = color.Grayscale16{ .value = try reader.readIntBig(u16) };
+            pixels.grayscale16[data_index] = color.Grayscale16{ .value = try reader.readInt(u16, .big) };
         }
     }
 }
@@ -384,7 +384,7 @@ fn Netpbm(comptime image_format: Image.Format, comptime header_numbers: []const 
                     .bitmap => {
                         switch (pixels) {
                             .grayscale1 => {
-                                var bit_writer = std.io.bitWriter(.Big, writer);
+                                var bit_writer = std.io.bitWriter(.big, writer);
 
                                 for (pixels.grayscale1) |entry| {
                                     try bit_writer.writeBits(~entry.value, 1);
@@ -402,12 +402,12 @@ fn Netpbm(comptime image_format: Image.Format, comptime header_numbers: []const 
                             .grayscale16 => {
                                 for (pixels.grayscale16) |entry| {
                                     // Big due to 16-bit PGM being semi standardized as big-endian
-                                    try writer.writeIntBig(u16, entry.value);
+                                    try writer.writeInt(u16, entry.value, .big);
                                 }
                             },
                             .grayscale8 => {
                                 for (pixels.grayscale8) |entry| {
-                                    try writer.writeIntLittle(u8, entry.value);
+                                    try writer.writeInt(u8, entry.value, .little);
                                 }
                             },
                             else => {

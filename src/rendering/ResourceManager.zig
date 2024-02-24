@@ -1234,10 +1234,10 @@ pub const DecodeImageData = struct {
         switch (image.pixels) {
             // super-fast path
             .rgba32 => |data| {
-                std.mem.copy(u8, buffer, std.mem.sliceAsBytes(data));
+                std.mem.copyForwards(u8, buffer, std.mem.sliceAsBytes(data));
             },
             .bgra32 => |data| {
-                std.mem.copy(u8, buffer, std.mem.sliceAsBytes(data));
+                std.mem.copyForwards(u8, buffer, std.mem.sliceAsBytes(data));
                 for (std.mem.bytesAsSlice(u32, buffer)) |*pixel| {
                     pixel.* = @byteSwap(pixel.*);
                 }

@@ -209,7 +209,7 @@ pub fn isAsciiStr(str: []const u8) !bool {
     while (i < str.len) {
         // Fast path for ASCII sequences
         while (i + N <= str.len) : (i += N) {
-            const v = mem.readIntNative(usize, str[i..][0..N]);
+            const v = mem.readInt(usize, str[i..][0..N], @import("builtin").target.cpu.arch.endian());
             if (v & MASK != 0) {
                 return false;
             }

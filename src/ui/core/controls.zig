@@ -66,7 +66,7 @@ pub const Control: type = blk: {
     for (classes) |class| {
         const field = UnionField{
             .name = class.name,
-            .field_type = class.type,
+            .type = class.type,
             .alignment = @alignOf(class.type),
         };
         fields = fields ++ [1]UnionField{field};

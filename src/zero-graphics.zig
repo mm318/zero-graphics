@@ -62,8 +62,8 @@ pub const Point = struct {
     }
 
     pub fn distance2(a: Point, b: Point) u32 {
-        const dx = @as(u32, std.math.absCast(a.x - b.x));
-        const dy = @as(u32, std.math.absCast(a.x - b.x));
+        const dx = @as(u32, @abs(a.x - b.x));
+        const dy = @as(u32, @abs(a.x - b.x));
         return dx * dx + dy * dy;
     }
 };

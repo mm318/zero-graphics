@@ -351,7 +351,7 @@ pub const TGA = struct {
         // Read ID
         if (self.header.id_length > 0) {
             var id_buffer: [256]u8 = undefined;
-            std.mem.set(u8, id_buffer[0..], 0);
+            @memset(&id_buffer, 0);
 
             const read_id_size = try stream.read(id_buffer[0..self.header.id_length]);
 
@@ -393,7 +393,8 @@ pub const TGA = struct {
                 // Read color map
                 switch (self.header.color_map_bit_depth) {
                     15, 16 => {
-                        try self.readColorMap16(pixels.indexed8, (TargaStream{ .image = reader }).reader());
+                        var tmp_stream = TargaStream{ .image = reader };
+                        try self.readColorMap16(pixels.indexed8, tmp_stream.reader());
                     },
                     else => {
                         return ImageError.Unsupported;
@@ -443,7 +444,7 @@ pub const TGA = struct {
         const data_end: usize = self.header.first_entry_index + self.header.color_map_length;
 
         while (data_index < data_end) : (data_index += 1) {
-            const raw_color = try stream.readIntLittle(u16);
+            const raw_color = try stream.readInt(u16, .little);
 
             data.palette[data_index].r = color.scaleToIntColor(u8, (@as(u5, @truncate(raw_color >> (5 * 2)))));
             data.palette[data_index].g = color.scaleToIntColor(u8, (@as(u5, @truncate(raw_color >> 5))));
@@ -457,7 +458,7 @@ pub const TGA = struct {
         const data_end: usize = self.width() * self.height();
 
         while (data_index < data_end) : (data_index += 1) {
-            const raw_color = try stream.readIntLittle(u16);
+            const raw_color = try stream.readInt(u16, .little);
 
             data[data_index].r = @as(u5, @truncate(raw_color >> (5 * 2)));
             data[data_index].g = @as(u5, @truncate(raw_color >> 5));

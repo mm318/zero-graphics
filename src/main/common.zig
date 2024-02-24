@@ -8,7 +8,7 @@ export fn zerog_renderer2d_alloc(user_data: ?*anyopaque, size: usize) ?*anyopaqu
     const allocator = @as(*std.mem.Allocator, @ptrCast(@alignCast(user_data orelse @panic("unexpected NULl!"))));
 
     const buffer = allocator.alignedAlloc(u8, 16, size + 16) catch return null;
-    std.mem.writeInt(usize, buffer[0..@sizeOf(usize)], buffer.len, builtin.cpu.arch.endian());
+    std.mem.writeInt(usize, buffer[0..@sizeOf(usize)], buffer.len, builtin.target.cpu.arch.endian());
     return buffer.ptr + 16;
 }
 
@@ -17,7 +17,7 @@ export fn zerog_renderer2d_free(user_data: ?*anyopaque, ptr: ?*anyopaque) void {
     const allocator = @as(*std.mem.Allocator, @ptrCast(@alignCast(user_data orelse @panic("unexpected NULl!"))));
 
     const actual_buffer = @as([*]u8, @ptrCast(ptr orelse return)) - 16;
-    const len = std.mem.readInt(usize, actual_buffer[0..@sizeOf(usize)], builtin.cpu.arch.endian());
+    const len = std.mem.readInt(usize, actual_buffer[0..@sizeOf(usize)], builtin.target.cpu.arch.endian());
 
     allocator.free(actual_buffer[0..len]);
 }
