@@ -29,5 +29,10 @@ jobs:
       - name: Setup demo_application web application
         run: zig build build-wasm
 
-      # - name: Host demo_application web application
-      #   run: zig build run-wasm
+      - name: Host demo_application web application
+        run: |
+          zig build run-wasm &
+          sleep 15
+          curl http://127.0.0.1:8000/demo_application.htm --output test1 \
+          && curl http://127.0.0.1:8000/zero-graphics.js --output test2 \
+          && curl http://127.0.0.1:8000/demo_application.wasm --output test3
