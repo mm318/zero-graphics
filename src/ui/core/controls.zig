@@ -11,7 +11,7 @@ pub const ClassID: type = blk: {
     const EnumField = std.builtin.Type.EnumField;
 
     var fields: []const EnumField = &.{};
-    for (std.meta.declarations(raw_control_list)) |decl, index| {
+    for (std.meta.declarations(raw_control_list), 0..) |decl, index| {
         const class = EnumField{
             .name = decl.name,
             .value = index,
@@ -42,9 +42,9 @@ pub const ControlClass = struct {
 pub const classes = blk: {
     var class_list: []const ControlClass = &.{};
 
-    for (std.meta.declarations(raw_control_list)) |decl, index| {
+    for (std.meta.declarations(raw_control_list), 0..) |decl, index| {
         const class = ControlClass{
-            .id = @intToEnum(ClassID, index),
+            .id = @as(ClassID, @enumFromInt(index)),
             .name = decl.name,
             .type = @field(raw_control_list, decl.name),
         };
@@ -66,7 +66,7 @@ pub const Control: type = blk: {
     for (classes) |class| {
         const field = UnionField{
             .name = class.name,
-            .field_type = class.type,
+            .type = class.type,
             .alignment = @alignOf(class.type),
         };
         fields = fields ++ [1]UnionField{field};
@@ -88,15 +88,15 @@ pub fn className(id: ClassID) []const u8 {
         pub const items = blk: {
             var strings: []const []const u8 = &.{};
 
-            for (std.enums.values(ClassID)) |value, index| {
-                std.debug.assert(@enumToInt(value) == index);
+            for (std.enums.values(ClassID), 0..) |value, index| {
+                std.debug.assert(@intFromEnum(value) == index);
                 strings = strings ++ [1][]const u8{@tagName(value)};
             }
 
             break :blk strings;
         };
     };
-    return T.items[@enumToInt(id)];
+    return T.items[@intFromEnum(id)];
 }
 
 ////////////////////////////////////////////

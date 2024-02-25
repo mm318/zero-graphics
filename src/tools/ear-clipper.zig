@@ -62,9 +62,9 @@ pub fn EarClipper(
 
         fn signedPolygonArea(vertices: []const Vertex) f32 {
             var signed_area: f32 = 0.0;
-            var p0 = vertexPosition(vertices[vertices.len - 1]);
+            const p0 = vertexPosition(vertices[vertices.len - 1]);
             for (vertices) |pt| {
-                var p1 = vertexPosition(pt);
+                const p1 = vertexPosition(pt);
                 signed_area += cross2D(p0, p1);
             }
             return signed_area / 2;
@@ -134,7 +134,7 @@ pub fn EarClipper(
             const temp_vertices = self.temp_vertices.items;
 
             std.debug.assert(temp_vertices.len >= 3);
-            search_loop: for (temp_vertices) |_, index| {
+            search_loop: for (temp_vertices, 0..) |_, index| {
                 const lo_bounds = index -| 1;
                 const hi_bounds = index + 2;
 

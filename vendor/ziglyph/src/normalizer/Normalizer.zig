@@ -291,7 +291,7 @@ fn cccLess(_: void, lhs: u21, rhs: u21) bool {
 fn canonicalSort(cps: []u21) void {
     var i: usize = 0;
     while (i < cps.len) : (i += 1) {
-        var start: usize = i;
+        const start: usize = i;
         while (i < cps.len and ccc_map.combiningClass(cps[i]) != 0) : (i += 1) {}
         std.sort.sort(u21, cps[start..i], {}, cccLess);
     }
@@ -318,7 +318,7 @@ fn nfxd(self: Self, allocator: std.mem.Allocator, str: []const u8, form: Form) !
     var cp_iter = view.iterator();
     while (cp_iter.nextCodepoint()) |cp| {
         const dc = self.decompose(cp, form);
-        const slice = for (dc.cps) |dcp, i| {
+        const slice = for (dc.cps, 0..) |dcp, i| {
             if (dcp == 0) break dc.cps[0..i];
         } else dc.cps[0..];
         try dcp_list.appendSlice(slice);
@@ -556,7 +556,7 @@ test "nfkc" {
 
 test "UCD tests" {
     var path_buf: [1024]u8 = undefined;
-    var path = try std.fs.cwd().realpath(".", &path_buf);
+    const path = try std.fs.cwd().realpath(".", &path_buf);
     // Check if testing in this library path.
     if (!std.mem.endsWith(u8, path, "ziglyph")) return error.SkipZigTest;
 
@@ -769,14 +769,14 @@ pub fn eqlCaseless(self: Self, allocator: std.mem.Allocator, a: []const u8, b: [
     // NFD(CaseFold(NFD(str))) or NFD(CaseFold(str))
     var norm_result_a = if (try requiresPreNfd(a)) try self.nfd(allocator, a) else Result{ .slice = a };
     defer norm_result_a.deinit();
-    var cf_a = try case_fold_map.caseFoldStr(allocator, norm_result_a.slice);
+    const cf_a = try case_fold_map.caseFoldStr(allocator, norm_result_a.slice);
     defer allocator.free(cf_a);
     norm_result_a.deinit();
     norm_result_a = try self.nfd(allocator, cf_a);
 
     var norm_result_b = if (try requiresPreNfd(b)) try self.nfd(allocator, b) else Result{ .slice = b };
     defer norm_result_b.deinit();
-    var cf_b = try case_fold_map.caseFoldStr(allocator, norm_result_b.slice);
+    const cf_b = try case_fold_map.caseFoldStr(allocator, norm_result_b.slice);
     defer allocator.free(cf_b);
     norm_result_b.deinit();
     norm_result_b = try self.nfd(allocator, cf_b);
@@ -800,7 +800,7 @@ fn getLeadCcc(self: Self, cp: u21) u8 {
 
 fn getTrailCcc(self: Self, cp: u21) u8 {
     const dc = self.mapping(cp, .nfd);
-    const len = for (dc.cps) |dcp, i| {
+    const len = for (dc.cps, 0..) |dcp, i| {
         if (dcp == 0) break i;
     } else dc.cps.len;
     return ccc_map.combiningClass(dc.cps[len -| 1]);

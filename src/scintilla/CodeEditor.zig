@@ -149,7 +149,7 @@ pub fn mouseUp(editor: *CodeEditor, time_stamp: f32, x: c_int, y: c_int) void {
 }
 
 pub fn keyDown(editor: *CodeEditor, scancode: zero_graphics.Input.Scancode, shift: bool, ctrl: bool, alt: bool) bool {
-    return c.scintilla_keyDown(editor.instance, @enumToInt(scancode), shift, ctrl, alt);
+    return c.scintilla_keyDown(editor.instance, @intFromEnum(scancode), shift, ctrl, alt);
 }
 
 pub fn enterString(editor: *CodeEditor, text: []const u8) void {
@@ -194,28 +194,28 @@ fn getEditor(zedit: PZigEditor) *CodeEditor {
 }
 
 fn getFont(font: ?*c.ZigFont) *const zero_graphics.Renderer2D.Font {
-    return @intToPtr(*const zero_graphics.Renderer2D.Font, @ptrToInt(font));
+    return @as(*const zero_graphics.Renderer2D.Font, @ptrFromInt(@intFromPtr(font)));
 }
 
 fn getColor(color: c.ZigColor) Color {
     return Color{
-        .r = @truncate(u8, color),
-        .g = @truncate(u8, color >> 8),
-        .b = @truncate(u8, color >> 16),
-        .a = @truncate(u8, color >> 24),
+        .r = @as(u8, @truncate(color)),
+        .g = @as(u8, @truncate(color >> 8)),
+        .b = @as(u8, @truncate(color >> 16)),
+        .a = @as(u8, @truncate(color >> 24)),
     };
 }
 fn getRect(rect: c.ZigRect) Rectangle {
     return Rectangle{
-        .x = @floatToInt(i16, rect.x),
-        .y = @floatToInt(i16, rect.y),
-        .width = @floatToInt(u15, std.math.max(0, rect.width)),
-        .height = @floatToInt(u15, std.math.max(0, rect.height)),
+        .x = @as(i16, @intFromFloat(rect.x)),
+        .y = @as(i16, @intFromFloat(rect.y)),
+        .width = @as(u15, @intFromFloat(std.math.max(0, rect.width))),
+        .height = @as(u15, @intFromFloat(std.math.max(0, rect.height))),
     };
 }
 
 export fn zero_graphics_getDisplayDpi() callconv(.C) c_int {
-    return @floatToInt(c_int, zero_graphics.getDisplayDPI());
+    return @as(c_int, @intFromFloat(zero_graphics.getDisplayDPI()));
 }
 export fn zero_graphics_getWidth() callconv(.C) c_int {
     return zero_graphics.CoreApplication.get().screen_size.width;
@@ -225,7 +225,7 @@ export fn zero_graphics_getHeight() callconv(.C) c_int {
 }
 
 export fn zero_graphics_alloc(raw_allocator: ?*anyopaque, size: usize) callconv(.C) ?*anyopaque {
-    const allocator = @ptrCast(*std.mem.Allocator, @alignCast(@alignOf(std.mem.Allocator), raw_allocator));
+    const allocator = @as(*std.mem.Allocator, @ptrCast(@alignCast(raw_allocator)));
 
     if (size == 0) return null;
 
@@ -254,9 +254,9 @@ fn createFont(zedit: PZigEditor, font_name: [*:0]const u8, font_size: f32) callc
 
     const font_bytes = @embedFile("../ui-data/SourceCodePro-Regular.ttf");
 
-    const font = self.renderer.createFont(font_bytes, @floatToInt(u15, font_size)) catch return null;
+    const font = self.renderer.createFont(font_bytes, @as(u15, @intFromFloat(font_size))) catch return null;
 
-    return @intToPtr(*c.ZigFont, @ptrToInt(font));
+    return @as(*c.ZigFont, @ptrFromInt(@intFromPtr(font)));
 }
 
 fn destroyFont(zedit: PZigEditor, font: ?*c.ZigFont) callconv(.C) void {
@@ -286,7 +286,7 @@ fn getFontCharWidth(zedit: PZigEditor, font_ptr: ?*c.ZigFont, char: u32) callcon
     const self = getEditor(zedit);
     const font = getFont(font_ptr);
 
-    const glyph = self.renderer.getGlyph(font, @truncate(u21, char)) catch return 0.0;
+    const glyph = self.renderer.getGlyph(font, @as(u21, @truncate(char))) catch return 0.0;
     return font.scaleValue(glyph.advance_width);
 }
 
@@ -296,7 +296,7 @@ fn measureStringWidth(zedit: PZigEditor, font_ptr: ?*c.ZigFont, str: [*]const u8
 
     const size = self.renderer.measureString(font, str[0..length]);
 
-    return @intToFloat(f32, size.width);
+    return @as(f32, @floatFromInt(size.width));
 }
 
 fn measureCharPositions(zedit: PZigEditor, font_ptr: ?*c.ZigFont, str: [*]const u8, length: usize, positions: [*]f32) callconv(.C) void {
@@ -314,7 +314,7 @@ fn measureCharPositions(zedit: PZigEditor, font_ptr: ?*c.ZigFont, str: [*]const 
     while (iter.nextCodepointSlice()) |slice| {
         const codepoint = std.unicode.utf8Decode(slice) catch unreachable;
 
-        var glyph = self.renderer.getGlyph(font, codepoint) catch continue;
+        const glyph = self.renderer.getGlyph(font, codepoint) catch continue;
 
         glyph_offset += font.scaleValue(glyph.advance_width);
         for (slice) |_| {

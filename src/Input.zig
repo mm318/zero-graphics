@@ -441,13 +441,13 @@ test "pool text_input events" {
 
 pub fn filter(self: *Self) Filter {
     return Filter{
-        .context = @ptrCast(*anyopaque, self),
+        .context = @as(*anyopaque, @ptrCast(self)),
         .fetchFn = fetchFromInput,
     };
 }
 
 fn fetchFromInput(ctx: *anyopaque) Filter.Error!?Event {
-    const input = @ptrCast(*Self, @alignCast(@alignOf(Self), ctx));
+    const input = @as(*Self, @ptrCast(@alignCast(ctx)));
     return input.fetch();
 }
 
@@ -477,13 +477,13 @@ pub const Filter = struct {
 
             pub fn inputFilter(self: *Instance) Filter {
                 return Filter{
-                    .context = @ptrCast(*anyopaque, self),
+                    .context = @as(*anyopaque, @ptrCast(self)),
                     .fetchFn = fetchFunc,
                 };
             }
 
             fn fetchFunc(ctx: *anyopaque) Error!?Event {
-                const instance = @ptrCast(*Instance, @alignCast(@alignOf(Instance), ctx));
+                const instance = @as(*Instance, @ptrCast(@alignCast(ctx)));
                 while (try instance.source.fetch()) |event| {
                     if (try callback(instance.target, event))
                         continue;

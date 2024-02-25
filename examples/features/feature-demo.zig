@@ -121,7 +121,7 @@ pub fn update(app: *Application) !bool {
         var ui_input = app.ui.processInput();
         defer ui_input.finish();
 
-        var core_filter = core().input.filter();
+        const core_filter = core().input.filter();
 
         var ui_filter = ui_input.inputFilter(core_filter);
 
@@ -211,10 +211,10 @@ pub fn update(app: *Application) !bool {
                 .height = 280,
             }, .{});
 
-            for (app.gui_data.check_group) |*checked, i| {
+            for (&app.gui_data.check_group, 0..) |*checked, i| {
                 var rect = zero_graphics.Rectangle{
                     .x = 160,
-                    .y = 20 + 40 * @intCast(u15, i),
+                    .y = 20 + 40 * @as(u15, @intCast(i)),
                     .height = 30,
                     .width = 30,
                 };
@@ -311,11 +311,11 @@ pub fn update(app: *Application) !bool {
 
                     startup_time = startup_time orelse zero_graphics.milliTimestamp();
 
-                    var t = 0.001 * @intToFloat(f32, zero_graphics.milliTimestamp() - startup_time.?);
-                    var points: [3][2]f32 = undefined;
+                    const t = 0.001 * @as(f32, @floatFromInt(zero_graphics.milliTimestamp() - startup_time.?));
 
-                    for (points) |*pt, i| {
-                        const offset = @intToFloat(f32, i);
+                    var points: [3][2]f32 = undefined;
+                    for (&points, 0..) |*pt, i| {
+                        const offset = @as(f32, @floatFromInt(i));
                         const mirror = @sin((1.0 + 0.2 * offset) * t + offset);
 
                         pt[0] = mirror * @sin((0.1 * offset) * 0.4 * t + offset);
@@ -323,11 +323,11 @@ pub fn update(app: *Application) !bool {
                     }
 
                     var real_pt: [3]zero_graphics.Point = undefined;
-                    for (real_pt) |*dst, i| {
+                    for (&real_pt, 0..) |*dst, i| {
                         const src = points[i];
                         dst.* = .{
-                            .x = rectangle.x + @floatToInt(i16, (0.5 + 0.5 * src[0]) * @intToFloat(f32, rectangle.width)),
-                            .y = rectangle.y + @floatToInt(i16, (0.5 + 0.5 * src[1]) * @intToFloat(f32, rectangle.height)),
+                            .x = rectangle.x + @as(i16, @intFromFloat((0.5 + 0.5 * src[0]) * @as(f32, @floatFromInt(rectangle.width)))),
+                            .y = rectangle.y + @as(i16, @intFromFloat((0.5 + 0.5 * src[1]) * @as(f32, @floatFromInt(rectangle.height)))),
                         };
                     }
                     var prev = real_pt[real_pt.len - 1];
@@ -498,7 +498,7 @@ pub fn render(app: *Application) !void {
 
     // OpenGL rendering
     {
-        const aspect = @intToFloat(f32, core().screen_size.width) / @intToFloat(f32, core().screen_size.height);
+        const aspect = @as(f32, @floatFromInt(core().screen_size.width)) / @as(f32, @floatFromInt(core().screen_size.height));
 
         gles.viewport(0, 0, core().screen_size.width, core().screen_size.height);
 
@@ -516,7 +516,7 @@ pub fn render(app: *Application) !void {
             10_000.0,
         );
 
-        const ts = @intToFloat(f32, zero_graphics.milliTimestamp() - app.startup_time) / 1000.0;
+        const ts = @as(f32, @floatFromInt(zero_graphics.milliTimestamp() - app.startup_time)) / 1000.0;
 
         const lookat_mat = zlm.SpecializeOn(f32).Mat4.createLookAt(
             // zlm.specializeOn(f32).vec3(0, 0, -10),
@@ -543,7 +543,7 @@ pub fn render(app: *Application) !void {
         if (take_screenshot) {
             take_screenshot = false;
 
-            var buffer = try app.allocator.alloc(u8, 4 * @as(usize, core().screen_size.width) * @as(usize, core().screen_size.height));
+            const buffer = try app.allocator.alloc(u8, 4 * @as(usize, core().screen_size.width) * @as(usize, core().screen_size.height));
             defer app.allocator.free(buffer);
 
             gles.pixelStorei(gles.PACK_ALIGNMENT, 1);
@@ -558,20 +558,20 @@ pub fn render(app: *Application) !void {
 
             const image_id = "Hello, TGA!";
 
-            try writer.writeIntLittle(u8, @intCast(u8, image_id.len));
-            try writer.writeIntLittle(u8, 0); // color map type = no color map
-            try writer.writeIntLittle(u8, 2); // image type = uncompressed true-color image
+            try writer.writeInt(u8, @as(u8, @intCast(image_id.len)), .little);
+            try writer.writeInt(u8, 0, .little); // color map type = no color map
+            try writer.writeInt(u8, 2, .little); // image type = uncompressed true-color image
             // color map spec
-            try writer.writeIntLittle(u16, 0); // first index
-            try writer.writeIntLittle(u16, 0); // length
-            try writer.writeIntLittle(u8, 0); // number of bits per pixel
+            try writer.writeInt(u16, 0, .little); // first index
+            try writer.writeInt(u16, 0, .little); // length
+            try writer.writeInt(u8, 0, .little); // number of bits per pixel
             // image spec
-            try writer.writeIntLittle(u16, 0); // x origin
-            try writer.writeIntLittle(u16, 0); // y origin
-            try writer.writeIntLittle(u16, core().screen_size.width); // width
-            try writer.writeIntLittle(u16, core().screen_size.height); // height
-            try writer.writeIntLittle(u8, 32); // bits per pixel
-            try writer.writeIntLittle(u8, 8); // 0…3 => alpha channel depth = 8, 4…7 => direction=bottom left
+            try writer.writeInt(u16, 0, .little); // x origin
+            try writer.writeInt(u16, 0, .little); // y origin
+            try writer.writeInt(u16, core().screen_size.width, .little); // width
+            try writer.writeInt(u16, core().screen_size.height, .little); // height
+            try writer.writeInt(u8, 32, .little); // bits per pixel
+            try writer.writeInt(u8, 8, .little); // 0…3 => alpha channel depth = 8, 4…7 => direction=bottom left
 
             try writer.writeAll(image_id);
             try writer.writeAll(""); // color map data \o/
@@ -617,7 +617,7 @@ const EditorData = struct {
             return;
         }
 
-        for (self.quad) |*pt| {
+        for (&self.quad) |*pt| {
             if (try app.editor.editPoint2D(pt, pt.*)) |motion| {
                 pt.* = motion;
             }
@@ -630,7 +630,7 @@ const EditorData = struct {
             return;
         }
 
-        for (self.quad) |vert, i| {
+        for (self.quad, 0..) |vert, i| {
             const next = self.quad[(i + 1) % self.quad.len];
 
             try app.renderer.drawLine(

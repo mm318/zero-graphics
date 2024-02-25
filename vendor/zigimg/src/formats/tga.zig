@@ -155,7 +155,7 @@ const TargaRLEDecoder = struct {
             if (packet_header.packet_type == .repeated) {
                 self.state = .repeated;
 
-                self.repeat_count = @intCast(usize, packet_header.pixel_count) + 1;
+                self.repeat_count = @as(usize, @intCast(packet_header.pixel_count)) + 1;
 
                 _ = try self.source_reader.read(self.repeat_data);
 
@@ -163,7 +163,7 @@ const TargaRLEDecoder = struct {
             } else if (packet_header.packet_type == .raw) {
                 self.state = .raw;
 
-                self.repeat_count = (@intCast(usize, packet_header.pixel_count) + 1) * self.bytes_per_pixel;
+                self.repeat_count = (@as(usize, @intCast(packet_header.pixel_count)) + 1) * self.bytes_per_pixel;
             }
         }
 
@@ -339,7 +339,7 @@ pub const TGA = struct {
 
         // Read extension
         if (footer.extension_offset > 0) {
-            const extension_pos = @intCast(u64, footer.extension_offset);
+            const extension_pos = @as(u64, @intCast(footer.extension_offset));
             try stream.seekTo(extension_pos);
             self.extension = try utils.readStructLittle(reader, TGAExtension);
         }
@@ -351,7 +351,7 @@ pub const TGA = struct {
         // Read ID
         if (self.header.id_length > 0) {
             var id_buffer: [256]u8 = undefined;
-            std.mem.set(u8, id_buffer[0..], 0);
+            @memset(&id_buffer, 0);
 
             const read_id_size = try stream.read(id_buffer[0..self.header.id_length]);
 
@@ -393,7 +393,8 @@ pub const TGA = struct {
                 // Read color map
                 switch (self.header.color_map_bit_depth) {
                     15, 16 => {
-                        try self.readColorMap16(pixels.indexed8, (TargaStream{ .image = reader }).reader());
+                        var tmp_stream = TargaStream{ .image = reader };
+                        try self.readColorMap16(pixels.indexed8, tmp_stream.reader());
                     },
                     else => {
                         return ImageError.Unsupported;
@@ -443,11 +444,11 @@ pub const TGA = struct {
         const data_end: usize = self.header.first_entry_index + self.header.color_map_length;
 
         while (data_index < data_end) : (data_index += 1) {
-            const raw_color = try stream.readIntLittle(u16);
+            const raw_color = try stream.readInt(u16, .little);
 
-            data.palette[data_index].r = color.scaleToIntColor(u8, (@truncate(u5, raw_color >> (5 * 2))));
-            data.palette[data_index].g = color.scaleToIntColor(u8, (@truncate(u5, raw_color >> 5)));
-            data.palette[data_index].b = color.scaleToIntColor(u8, (@truncate(u5, raw_color)));
+            data.palette[data_index].r = color.scaleToIntColor(u8, (@as(u5, @truncate(raw_color >> (5 * 2)))));
+            data.palette[data_index].g = color.scaleToIntColor(u8, (@as(u5, @truncate(raw_color >> 5))));
+            data.palette[data_index].b = color.scaleToIntColor(u8, (@as(u5, @truncate(raw_color))));
             data.palette[data_index].a = 255;
         }
     }
@@ -457,11 +458,11 @@ pub const TGA = struct {
         const data_end: usize = self.width() * self.height();
 
         while (data_index < data_end) : (data_index += 1) {
-            const raw_color = try stream.readIntLittle(u16);
+            const raw_color = try stream.readInt(u16, .little);
 
-            data[data_index].r = @truncate(u5, raw_color >> (5 * 2));
-            data[data_index].g = @truncate(u5, raw_color >> 5);
-            data[data_index].b = @truncate(u5, raw_color);
+            data[data_index].r = @as(u5, @truncate(raw_color >> (5 * 2)));
+            data[data_index].g = @as(u5, @truncate(raw_color >> 5));
+            data[data_index].b = @as(u5, @truncate(raw_color));
         }
     }
 

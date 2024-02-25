@@ -85,7 +85,7 @@ pub fn init(resources: *ResourceManager, allocator: std.mem.Allocator) InitError
 
     // const static_geometry_shader = try
 
-    var static_geometry_shader = try resources.createShader(ResourceManager.BasicShader{
+    const static_geometry_shader = try resources.createShader(ResourceManager.BasicShader{
         .vertex_shader = static_vertex_source,
         .fragment_shader = static_alphatest_fragment_source,
         .attributes = glesh.attributes(attributes),
@@ -213,11 +213,11 @@ pub fn render(self: Self, viewProjectionMatrix: [4][4]f32) void {
 
     gles.depthFunc(gles.LEQUAL);
 
-    var uniforms = glesh.fetchUniforms(self.static_geometry_shader.instance.?, Uniforms);
+    const uniforms = glesh.fetchUniforms(self.static_geometry_shader.instance.?, Uniforms);
 
     gles.useProgram(self.static_geometry_shader.instance.?);
     gles.uniform1i(uniforms.uTexture, 0);
-    gles.uniformMatrix4fv(uniforms.uViewProjMatrix, 1, gles.FALSE, @ptrCast([*]const f32, &viewProjectionMatrix));
+    gles.uniformMatrix4fv(uniforms.uViewProjMatrix, 1, gles.FALSE, @as([*]const f32, @ptrCast(&viewProjectionMatrix)));
 
     gles.activeTexture(gles.TEXTURE0);
 
@@ -232,8 +232,8 @@ pub fn render(self: Self, viewProjectionMatrix: [4][4]f32) void {
                     .{ 0, 0, 1 },
                 };
 
-                gles.uniformMatrix3fv(uniforms.uTexTransform, 1, gles.FALSE, @ptrCast([*]const f32, &tex_id));
-                gles.uniformMatrix4fv(uniforms.uWorldMatrix, 1, gles.FALSE, @ptrCast([*]const f32, &draw_geom.transform));
+                gles.uniformMatrix3fv(uniforms.uTexTransform, 1, gles.FALSE, @as([*]const f32, @ptrCast(&tex_id)));
+                gles.uniformMatrix4fv(uniforms.uWorldMatrix, 1, gles.FALSE, @as([*]const f32, @ptrCast(&draw_geom.transform)));
 
                 for (draw_geom.geometry.meshes) |mesh| {
                     const tex_handle = mesh.texture orelse self.white_texture;
@@ -241,9 +241,9 @@ pub fn render(self: Self, viewProjectionMatrix: [4][4]f32) void {
                     gles.bindTexture(gles.TEXTURE_2D, tex_handle.instance.?);
                     gles.drawElements(
                         gles.TRIANGLES,
-                        @intCast(gles.GLsizei, mesh.count),
+                        @as(gles.GLsizei, @intCast(mesh.count)),
                         gles.UNSIGNED_SHORT,
-                        @intToPtr(?*const anyopaque, @sizeOf(u16) * mesh.offset),
+                        @as(?*const anyopaque, @ptrFromInt(@sizeOf(u16) * mesh.offset)),
                     );
                 }
             },
@@ -251,8 +251,8 @@ pub fn render(self: Self, viewProjectionMatrix: [4][4]f32) void {
             .sprite => |draw_sprite| {
                 self.sprite_quad.bind();
 
-                const w = @intToFloat(f32, draw_sprite.rectangle.width);
-                const h = @intToFloat(f32, draw_sprite.rectangle.height);
+                const w = @as(f32, @floatFromInt(draw_sprite.rectangle.width));
+                const h = @as(f32, @floatFromInt(draw_sprite.rectangle.height));
 
                 const scale_mat: Mat4 = .{
                     .{ w, 0, 0, 0 },
@@ -263,10 +263,10 @@ pub fn render(self: Self, viewProjectionMatrix: [4][4]f32) void {
 
                 const final_mat = matMul(scale_mat, draw_sprite.transform);
 
-                const sx = w / @intToFloat(f32, draw_sprite.sprite.width);
-                const sy = h / @intToFloat(f32, draw_sprite.sprite.height);
-                const dx = @intToFloat(f32, draw_sprite.rectangle.x) / @intToFloat(f32, draw_sprite.sprite.width);
-                const dy = @intToFloat(f32, draw_sprite.rectangle.y) / @intToFloat(f32, draw_sprite.sprite.height);
+                const sx = w / @as(f32, @floatFromInt(draw_sprite.sprite.width));
+                const sy = h / @as(f32, @floatFromInt(draw_sprite.sprite.height));
+                const dx = @as(f32, @floatFromInt(draw_sprite.rectangle.x)) / @as(f32, @floatFromInt(draw_sprite.sprite.width));
+                const dy = @as(f32, @floatFromInt(draw_sprite.rectangle.y)) / @as(f32, @floatFromInt(draw_sprite.sprite.height));
 
                 const tex_transform = Mat3{
                     .{ sx, 0, 0 },
@@ -274,8 +274,8 @@ pub fn render(self: Self, viewProjectionMatrix: [4][4]f32) void {
                     .{ dx, dy, 1 },
                 };
 
-                gles.uniformMatrix3fv(uniforms.uTexTransform, 1, gles.FALSE, @ptrCast([*]const f32, &tex_transform));
-                gles.uniformMatrix4fv(uniforms.uWorldMatrix, 1, gles.FALSE, @ptrCast([*]const f32, &final_mat));
+                gles.uniformMatrix3fv(uniforms.uTexTransform, 1, gles.FALSE, @as([*]const f32, @ptrCast(&tex_transform)));
+                gles.uniformMatrix4fv(uniforms.uWorldMatrix, 1, gles.FALSE, @as([*]const f32, @ptrCast(&final_mat)));
                 gles.bindTexture(gles.TEXTURE_2D, draw_sprite.sprite.instance.?);
 
                 gles.drawArrays(gles.TRIANGLE_STRIP, 0, 4);

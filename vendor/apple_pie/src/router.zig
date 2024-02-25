@@ -34,7 +34,7 @@ pub fn Router(comptime Context: type, comptime routes: []const Route(Context)) R
     comptime var trees: [10]trie.Trie(u8) = undefined;
     inline for (trees) |*t| t.* = trie.Trie(u8){};
 
-    inline for (routes) |r, i| {
+    inline for (routes, 0..) |r, i| {
         if (@typeInfo(@TypeOf(r.handler)) != .Fn) @compileError("Handler must be a function");
 
         const args = @typeInfo(@TypeOf(r.handler)).Fn.args;
@@ -52,7 +52,7 @@ pub fn Router(comptime Context: type, comptime routes: []const Route(Context)) R
             @compileError("Third parameter must be of type " ++ @typeName(Request));
         }
 
-        trees[@enumToInt(r.method)].insert(r.path, i);
+        trees[@intFromEnum(r.method)].insert(r.path, i);
     }
 
     return struct {
@@ -97,21 +97,21 @@ pub fn Router(comptime Context: type, comptime routes: []const Route(Context)) R
                     else => @compileError("Unsupported type " ++ @typeName(ArgType)),
                 },
             };
-            return route.handler(ctx, res, req, @ptrCast(?*const anyopaque, &param));
+            return route.handler(ctx, res, req, @as(?*const anyopaque, @ptrCast(&param)));
         }
 
         pub fn serve(context: Context, response: *Response, request: Request) !void {
-            switch (trees[@enumToInt(request.method())].get(request.path())) {
+            switch (trees[@intFromEnum(request.method())].get(request.path())) {
                 .none => {
                     // if nothing was found for current method, try the wildcard
                     switch (trees[9].get(request.path())) {
                         .none => return response.notFound(),
                         .static => |index| {
-                            inline for (routes) |route, i|
+                            inline for (routes, 0..) |route, i|
                                 if (index == i) return Self.handle(route, &.{}, context, response, request);
                         },
                         .with_params => |object| {
-                            inline for (routes) |route, i| {
+                            inline for (routes, 0..) |route, i| {
                                 if (object.data == i)
                                     return Self.handle(route, object.params[0..object.param_count], context, response, request);
                             }
@@ -119,12 +119,12 @@ pub fn Router(comptime Context: type, comptime routes: []const Route(Context)) R
                     }
                 },
                 .static => |index| {
-                    inline for (routes) |route, i| {
+                    inline for (routes, 0..) |route, i| {
                         if (index == i) return Self.handle(route, &.{}, context, response, request);
                     }
                 },
                 .with_params => |object| {
-                    inline for (routes) |route, i| {
+                    inline for (routes, 0..) |route, i| {
                         if (object.data == i)
                             return Self.handle(route, object.params[0..object.param_count], context, response, request);
                     }

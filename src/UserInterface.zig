@@ -67,7 +67,7 @@ pub const Theme = struct {
 
     fn rgba(comptime str: *const [6]u8, alpha: f32) Color {
         var color = rgb(str);
-        color.a = @floatToInt(u8, 255.0 * alpha);
+        color.a = @as(u8, @intFromFloat(255.0 * alpha));
         return color;
     }
 
@@ -644,8 +644,8 @@ fn findOrAllocWidget(self: *UserInterface, widget_type: ControlType, id: WidgetI
 /// Returns a unqiue identifier for each type.
 fn typeId(comptime T: type) usize {
     _ = T;
-    return comptime @ptrToInt(&struct {
-        var i: u8 = 0;
+    return @intFromPtr(&struct {
+        const i: u8 = 0;
     }.i);
 }
 
@@ -658,7 +658,7 @@ fn widgetId(config: anytype) WidgetID {
     if (@hasField(Config, "id"))
         hash.update(std.mem.asBytes(&config.id));
 
-    return @intToEnum(WidgetID, hash.final());
+    return @as(WidgetID, @enumFromInt(hash.final()));
 }
 
 fn updateWidgetConfig(dst_config: anytype, src_config: anytype) void {
@@ -726,9 +726,9 @@ pub const Builder = struct {
     fn InitOrUpdateWidget(comptime widget: ControlType) type {
         return struct {
             pub const Control = blk: {
-                inline for (std.meta.fields(Widget.Control)) |fld| {
+                for (std.meta.fields(Widget.Control)) |fld| {
                     if (std.mem.eql(u8, fld.name, @tagName(widget)))
-                        break :blk fld.field_type;
+                        break :blk fld.type;
                 }
                 @compileError("Unknown widget type:");
             };
@@ -1041,7 +1041,7 @@ pub const InputProcessor = struct {
                 .code_editor => |*control| {
                     if (has_code_editor) {
                         control.editor.mouseDown(
-                            @intToFloat(f32, types.milliTimestamp()) / 1000.0,
+                            @as(f32, @floatFromInt(types.milliTimestamp())) / 1000.0,
                             self.ui.pointer_position.x,
                             self.ui.pointer_position.y,
                         );
@@ -1075,7 +1075,7 @@ pub const InputProcessor = struct {
                 .code_editor => |*control| {
                     if (has_code_editor) {
                         control.editor.mouseUp(
-                            @intToFloat(f32, types.milliTimestamp()) / 1000.0,
+                            @as(f32, @floatFromInt(types.milliTimestamp())) / 1000.0,
                             self.ui.pointer_position.x,
                             self.ui.pointer_position.y,
                         );
@@ -1236,13 +1236,13 @@ pub const InputProcessor = struct {
 
         pub fn inputFilter(self: *InputFilter) types.Input.Filter {
             return types.Input.Filter{
-                .context = @ptrCast(*anyopaque, self),
+                .context = @as(*anyopaque, @ptrCast(self)),
                 .fetchFn = fetchFunc,
             };
         }
 
         fn fetchFunc(ctx: *anyopaque) error{OutOfMemory}!?types.Input.Event {
-            const filter = @ptrCast(*InputFilter, @alignCast(@alignOf(InputFilter), ctx));
+            const filter = @as(*InputFilter, @ptrCast(@alignCast(ctx)));
             while (try filter.source.fetch()) |event| {
                 switch (event) {
                     .pointer_motion => |pt| filter.target.setPointer(pt),
@@ -1399,7 +1399,7 @@ pub fn render(self: UserInterface) !void {
                     const scroll_extra_l = 32;
                     const view_width = widget.bounds.width - 2 * text_padding;
 
-                    const l = std.math.min(view_width, scroll_padding_l);
+                    const l = @min(view_width, scroll_padding_l);
                     const r = clampSub(view_width, scroll_padding_r);
 
                     const civ = clampSub(cursor_position, control.scroll_offset);
@@ -1662,7 +1662,7 @@ const StringBuffer = union(enum) {
         switch (self.*) {
             .allocated => |*list| {
                 try list.resize(string.len);
-                std.mem.copy(u8, list.items, string);
+                std.mem.copyForwards(u8, list.items, string);
             },
             else => {
                 if (string.len <= ArrayBuffer.max_len) {
@@ -1672,13 +1672,13 @@ const StringBuffer = union(enum) {
                             .len = string.len,
                         },
                     };
-                    std.mem.copy(u8, self.self_contained.items[0..string.len], string);
+                    std.mem.copyForwards(u8, self.self_contained.items[0..string.len], string);
                 } else {
                     self.* = Self{
                         .allocated = std.ArrayList(u8).init(allocator),
                     };
                     try self.allocated.resize(string.len);
-                    std.mem.copy(u8, self.allocated.items, string);
+                    std.mem.copyForwards(u8, self.allocated.items, string);
                 }
             },
         }
@@ -1720,6 +1720,6 @@ const StringHash = enum(u32) {
     _,
 
     pub fn compute(string: []const u8) StringHash {
-        return @intToEnum(StringHash, std.hash.CityHash32.hash(string));
+        return @as(StringHash, @enumFromInt(std.hash.CityHash32.hash(string)));
     }
 };

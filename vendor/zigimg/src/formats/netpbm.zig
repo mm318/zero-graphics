@@ -87,7 +87,7 @@ fn isWhitespace(b: u8) bool {
 
 fn readNextByte(reader: Image.Stream.Reader) ImageReadError!u8 {
     while (true) {
-        var b = try reader.readByte();
+        const b = try reader.readByte();
         switch (b) {
             // Before the whitespace character that delimits the raster, any characters
             // from a "#" through the next carriage return or newline character, is a
@@ -98,7 +98,7 @@ fn readNextByte(reader: Image.Stream.Reader) ImageReadError!u8 {
             '#' => {
                 // eat up comment
                 while (true) {
-                    var c = try reader.readByte();
+                    const c = try reader.readByte();
                     switch (c) {
                         '\r', '\n' => break,
                         else => {},
@@ -115,7 +115,7 @@ fn readNextByte(reader: Image.Stream.Reader) ImageReadError!u8 {
 fn parseNumber(reader: Image.Stream.Reader, buffer: []u8) ImageReadError!usize {
     var input_length: usize = 0;
     while (true) {
-        var b = try readNextByte(reader);
+        const b = try readNextByte(reader);
         if (isWhitespace(b)) {
             if (input_length > 0) {
                 return std.fmt.parseInt(usize, buffer[0..input_length], 10) catch return ImageReadError.InvalidData;
@@ -135,7 +135,7 @@ fn loadBinaryBitmap(header: Header, data: []color.Grayscale1, reader: Image.Stre
     var data_index: usize = 0;
     const data_end = header.width * header.height;
 
-    var bit_reader = std.io.bitReader(.Big, reader);
+    var bit_reader = std.io.bitReader(.big, reader);
 
     while (data_index < data_end) : (data_index += 1) {
         // set bit is black, cleared bit is white
@@ -150,7 +150,7 @@ fn loadAsciiBitmap(header: Header, data: []color.Grayscale1, reader: Image.Strea
     const data_end = header.width * header.height;
 
     while (data_index < data_end) {
-        var b = try reader.readByte();
+        const b = try reader.readByte();
         if (isWhitespace(b)) {
             continue;
         }
@@ -166,9 +166,9 @@ fn loadAsciiBitmap(header: Header, data: []color.Grayscale1, reader: Image.Strea
 
 fn readLinearizedValue(reader: Image.Stream.Reader, max_value: usize) ImageReadError!u8 {
     return if (max_value > 255)
-        @truncate(u8, 255 * @as(usize, try reader.readIntBig(u16)) / max_value)
+        @as(u8, @truncate(255 * @as(usize, try reader.readInt(u16, .big)) / max_value))
     else
-        @truncate(u8, 255 * @as(usize, try reader.readByte()) / max_value);
+        @as(u8, @truncate(255 * @as(usize, try reader.readByte()) / max_value));
 }
 
 fn loadBinaryGraymap(header: Header, pixels: *color.PixelStorage, reader: Image.Stream.Reader) ImageReadError!void {
@@ -180,7 +180,7 @@ fn loadBinaryGraymap(header: Header, pixels: *color.PixelStorage, reader: Image.
         }
     } else {
         while (data_index < data_end) : (data_index += 1) {
-            pixels.grayscale16[data_index] = color.Grayscale16{ .value = try reader.readIntBig(u16) };
+            pixels.grayscale16[data_index] = color.Grayscale16{ .value = try reader.readInt(u16, .big) };
         }
     }
 }
@@ -193,11 +193,11 @@ fn loadAsciiGraymap(header: Header, pixels: *color.PixelStorage, reader: Image.S
 
     if (header.max_value <= 255) {
         while (data_index < data_end) : (data_index += 1) {
-            pixels.grayscale8[data_index] = color.Grayscale8{ .value = @truncate(u8, try parseNumber(reader, read_buffer[0..])) };
+            pixels.grayscale8[data_index] = color.Grayscale8{ .value = @as(u8, @truncate(try parseNumber(reader, read_buffer[0..]))) };
         }
     } else {
         while (data_index < data_end) : (data_index += 1) {
-            pixels.grayscale16[data_index] = color.Grayscale16{ .value = @truncate(u16, try parseNumber(reader, read_buffer[0..])) };
+            pixels.grayscale16[data_index] = color.Grayscale16{ .value = @as(u16, @truncate(try parseNumber(reader, read_buffer[0..]))) };
         }
     }
 }
@@ -222,14 +222,14 @@ fn loadAsciiRgbmap(header: Header, data: []color.Rgb24, reader: Image.Stream.Rea
     const data_end = header.width * header.height;
 
     while (data_index < data_end) : (data_index += 1) {
-        var r = try parseNumber(reader, read_buffer[0..]);
-        var g = try parseNumber(reader, read_buffer[0..]);
-        var b = try parseNumber(reader, read_buffer[0..]);
+        const r = try parseNumber(reader, read_buffer[0..]);
+        const g = try parseNumber(reader, read_buffer[0..]);
+        const b = try parseNumber(reader, read_buffer[0..]);
 
         data[data_index] = color.Rgb24{
-            .r = @truncate(u8, 255 * r / header.max_value),
-            .g = @truncate(u8, 255 * g / header.max_value),
-            .b = @truncate(u8, 255 * b / header.max_value),
+            .r = @as(u8, @truncate(255 * r / header.max_value)),
+            .g = @as(u8, @truncate(255 * g / header.max_value)),
+            .b = @as(u8, @truncate(255 * b / header.max_value)),
         };
     }
 }
@@ -384,7 +384,7 @@ fn Netpbm(comptime image_format: Image.Format, comptime header_numbers: []const 
                     .bitmap => {
                         switch (pixels) {
                             .grayscale1 => {
-                                var bit_writer = std.io.bitWriter(.Big, writer);
+                                var bit_writer = std.io.bitWriter(.big, writer);
 
                                 for (pixels.grayscale1) |entry| {
                                     try bit_writer.writeBits(~entry.value, 1);
@@ -402,12 +402,12 @@ fn Netpbm(comptime image_format: Image.Format, comptime header_numbers: []const 
                             .grayscale16 => {
                                 for (pixels.grayscale16) |entry| {
                                     // Big due to 16-bit PGM being semi standardized as big-endian
-                                    try writer.writeIntBig(u16, entry.value);
+                                    try writer.writeInt(u16, entry.value, .big);
                                 }
                             },
                             .grayscale8 => {
                                 for (pixels.grayscale8) |entry| {
-                                    try writer.writeIntLittle(u8, entry.value);
+                                    try writer.writeInt(u8, entry.value, .little);
                                 }
                             },
                             else => {
@@ -449,7 +449,7 @@ fn Netpbm(comptime image_format: Image.Format, comptime header_numbers: []const 
                         switch (pixels) {
                             .grayscale16 => {
                                 const pixels_len = pixels.len();
-                                for (pixels.grayscale16) |entry, index| {
+                                for (pixels.grayscale16, 0..) |entry, index| {
                                     try writer.print("{}", .{entry.value});
 
                                     if (index != (pixels_len - 1)) {
@@ -460,7 +460,7 @@ fn Netpbm(comptime image_format: Image.Format, comptime header_numbers: []const 
                             },
                             .grayscale8 => {
                                 const pixels_len = pixels.len();
-                                for (pixels.grayscale8) |entry, index| {
+                                for (pixels.grayscale8, 0..) |entry, index| {
                                     try writer.print("{}", .{entry.value});
 
                                     if (index != (pixels_len - 1)) {

@@ -88,9 +88,9 @@ const GetGizmoResult = struct {
 fn makeTagValue(value: anytype) usize {
     const T = @TypeOf(value);
     return switch (@typeInfo(T)) {
-        .Pointer => @ptrToInt(value),
+        .Pointer => @intFromPtr(value),
         .Int => |int| if (int.signedness == .signed)
-            @bitCast(usize, @as(isize, value))
+            @as(usize, @bitCast(@as(isize, value)))
         else
             @as(usize, value),
 
@@ -222,8 +222,8 @@ fn processEvent(self: *Editor, event: zero_graphics.Input.Event) !bool {
             }
 
             if (self.dragged) |dragged| {
-                var dx = self.mouse_pos.x - self.drag_start.x;
-                var dy = self.mouse_pos.y - self.drag_start.y;
+                const dx = self.mouse_pos.x - self.drag_start.x;
+                const dy = self.mouse_pos.y - self.drag_start.y;
 
                 if ((dx != 0) or (dy != 0)) {
                     dragged.changed = true;

@@ -32,7 +32,7 @@ pub const Event = struct {
         _ = options;
         try writer.print("Event{{ .sender = {s}(0x{X}), .data = {?}, .handler = (id={}, data={?} }}", .{
             @tagName(self.sender.control),
-            @ptrToInt(self.sender),
+            @intFromPtr(self.sender),
             self.data,
             self.handler.id,
             self.handler.user_data,

@@ -115,25 +115,25 @@ pub fn deinit(self: *Self) void {
 
 pub fn getVirtualScreenSize(self: Self, physical_size: Size) Size {
     return Size{
-        .width = @floatToInt(u15, 0.5 + @intToFloat(f32, physical_size.width) / self.unit_to_pixel_ratio),
-        .height = @floatToInt(u15, 0.5 + @intToFloat(f32, physical_size.height) / self.unit_to_pixel_ratio),
+        .width = @as(u15, @intFromFloat(0.5 + @as(f32, @floatFromInt(physical_size.width)) / self.unit_to_pixel_ratio)),
+        .height = @as(u15, @intFromFloat(0.5 + @as(f32, @floatFromInt(physical_size.height)) / self.unit_to_pixel_ratio)),
     };
 }
 
 fn inverseScaleDimension(self: Self, size: u15) u15 {
-    return @floatToInt(u15, 0.5 + @intToFloat(f32, size) / self.unit_to_pixel_ratio);
+    return @as(u15, @intFromFloat(0.5 + @as(f32, @floatFromInt(size)) / self.unit_to_pixel_ratio));
 }
 
 fn inverseScalePosition(self: Self, val: i16) i16 {
-    return @floatToInt(i16, 0.5 + @intToFloat(f32, val) / self.unit_to_pixel_ratio);
+    return @as(i16, @intFromFloat(0.5 + @as(f32, @floatFromInt(val)) / self.unit_to_pixel_ratio));
 }
 
 fn scaleDimension(self: Self, size: u15) u15 {
-    return @floatToInt(u15, 0.5 + self.unit_to_pixel_ratio * @intToFloat(f32, size));
+    return @as(u15, @intFromFloat(0.5 + self.unit_to_pixel_ratio * @as(f32, @floatFromInt(size))));
 }
 
 fn scalePosition(self: Self, val: i16) i16 {
-    return @floatToInt(i16, 0.5 + self.unit_to_pixel_ratio * @intToFloat(f32, val));
+    return @as(i16, @intFromFloat(0.5 + self.unit_to_pixel_ratio * @as(f32, @floatFromInt(val))));
 }
 
 fn scalePoint(self: Self, pt: Point) Point {
@@ -187,9 +187,9 @@ pub fn createFont(self: *Self, ttf_bytes: []const u8, size: u15) CreateFontError
             .arena = std.heap.ArenaAllocator.init(self.allocator),
             .glyphs = std.AutoHashMap(u24, Glyph).init(self.allocator),
             .font_size = size,
-            .ascent = @intCast(i16, ascent),
-            .descent = @intCast(i16, descent),
-            .line_gap = @intCast(i16, line_gap),
+            .ascent = @as(i16, @intCast(ascent)),
+            .descent = @as(i16, @intCast(descent)),
+            .line_gap = @as(i16, @intCast(line_gap)),
         },
     };
 
@@ -199,7 +199,7 @@ pub fn createFont(self: *Self, ttf_bytes: []const u8, size: u15) CreateFontError
 }
 
 fn makeFontMut(ptr: *const Font) *Font {
-    return @intToPtr(*Font, @ptrToInt(ptr));
+    return @as(*Font, @ptrFromInt(@intFromPtr(ptr)));
 }
 
 /// Destroys a font and releases all of its memory.
@@ -234,7 +234,7 @@ fn destroyFontInternal(self: *Self, node: *FontItem) void {
 }
 
 fn getFontScale(self: Self, font: *const Font) f32 {
-    return self.unit_to_pixel_ratio * c.stbtt_ScaleForPixelHeight(&font.font, @intToFloat(f32, font.font_size));
+    return self.unit_to_pixel_ratio * c.stbtt_ScaleForPixelHeight(&font.font, @as(f32, @floatFromInt(font.font_size)));
 }
 
 pub fn getGlyph(self: *Self, font: *const Font, codepoint: u21) !Glyph {
@@ -263,10 +263,10 @@ fn getGlyphInternal(self: *Self, font: *Font, codepoint: u21) !Glyph {
     std.debug.assert(ix0 <= ix1);
     std.debug.assert(iy0 <= iy1);
 
-    const width: u15 = @intCast(u15, ix1 - ix0);
-    const height: u15 = @intCast(u15, iy1 - iy0);
+    const width: u15 = @as(u15, @intCast(ix1 - ix0));
+    const height: u15 = @as(u15, @intCast(iy1 - iy0));
 
-    var gop = try font.glyphs.getOrPut(codepoint);
+    const gop = try font.glyphs.getOrPut(codepoint);
     if (!gop.found_existing or gop.value_ptr.width != width or gop.value_ptr.height != height) {
         const bitmap = try font.arena.allocator().alloc(u8, @as(usize, width) * height);
         errdefer font.arena.allocator().free(bitmap);
@@ -274,9 +274,9 @@ fn getGlyphInternal(self: *Self, font: *Font, codepoint: u21) !Glyph {
         c.stbtt_MakeCodepointBitmap(
             &font.font,
             bitmap.ptr,
-            @intCast(c_int, width),
-            @intCast(c_int, height),
-            @intCast(c_int, width), // stride
+            @as(c_int, @intCast(width)),
+            @as(c_int, @intCast(height)),
+            @as(c_int, @intCast(width)), // stride
             scale,
             scale,
             codepoint,
@@ -289,7 +289,7 @@ fn getGlyphInternal(self: *Self, font: *Font, codepoint: u21) !Glyph {
         const texture_data = try font.arena.allocator().alloc(u8, 4 * @as(usize, width) * height);
         errdefer font.arena.allocator().free(texture_data);
 
-        for (bitmap) |a, i| {
+        for (bitmap, 0..) |a, i| {
             const o = 4 * i;
             texture_data[o + 0] = 0xFF;
             texture_data[o + 1] = 0xFF;
@@ -297,7 +297,7 @@ fn getGlyphInternal(self: *Self, font: *Font, codepoint: u21) !Glyph {
             texture_data[o + 3] = a;
         }
 
-        var texture = try self.resources.createTexture(.ui, ResourceManager.RawRgbaTexture{
+        const texture = try self.resources.createTexture(.ui, ResourceManager.RawRgbaTexture{
             .width = width,
             .height = height,
             .pixels = texture_data,
@@ -316,14 +316,14 @@ fn getGlyphInternal(self: *Self, font: *Font, codepoint: u21) !Glyph {
         //     left_side_bearing,
         // });
 
-        var glyph = Glyph{
+        const glyph = Glyph{
             .texture = texture,
             .pixels = bitmap,
             .width = width,
             .height = height,
-            .advance_width = @intCast(i16, advance_width),
-            .left_side_bearing = @intCast(i16, left_side_bearing),
-            .offset_y = @intCast(i16, iy0),
+            .advance_width = @as(i16, @intCast(advance_width)),
+            .left_side_bearing = @as(i16, @intCast(left_side_bearing)),
+            .offset_y = @as(i16, @intCast(iy0)),
         };
 
         // var buf: [8]u8 = undefined;
@@ -343,7 +343,7 @@ fn getGlyphInternal(self: *Self, font: *Font, codepoint: u21) !Glyph {
 }
 
 fn scaleInt(ival: isize, scale: f32) i16 {
-    return @intCast(i16, @floatToInt(isize, @round(@intToFloat(f32, ival) * scale)));
+    return @as(i16, @intCast(@as(isize, @intFromFloat(@round(@as(f32, @floatFromInt(ival)) * scale)))));
 }
 
 const GlyphIterator = struct {
@@ -396,7 +396,7 @@ const GlyphIterator = struct {
             const glyph = self.renderer.getGlyph(self.font, codepoint.scalar) catch continue;
 
             if (self.previous_codepoint) |prev| {
-                self.dx -= @intCast(i16, c.stbtt_GetCodepointKernAdvance(&self.font.font, prev, codepoint.scalar));
+                self.dx -= @as(i16, @intCast(c.stbtt_GetCodepointKernAdvance(&self.font.font, prev, codepoint.scalar)));
             }
             self.previous_codepoint = codepoint.scalar;
 
@@ -408,7 +408,7 @@ const GlyphIterator = struct {
             return GlyphCmd{
                 .codepoint = codepoint.scalar,
 
-                .glyph_width = @intCast(u15, std.math.max(0, scaleInt(glyph.advance_width, self.scale))),
+                .glyph_width = @as(u15, @intCast(@max(0, scaleInt(glyph.advance_width, self.scale)))),
                 .glyph_height = self.font.getLineHeight(),
 
                 .texture = glyph.texture,
@@ -449,17 +449,17 @@ pub fn measureString(self: *Self, font: *const Font, text: []const u8) Rectangle
 
     var iterator = GlyphIterator.init(self, makeFontMut(font), text);
     while (iterator.next()) |glyph| {
-        min_dx = std.math.min(min_dx, glyph.quad_x);
-        min_dy = std.math.min(min_dy, glyph.quad_y);
-        max_dx = std.math.max(max_dx, glyph.quad_x + glyph.glyph_width);
-        max_dy = std.math.max(max_dy, glyph.quad_y + glyph.glyph_height);
+        min_dx = @min(min_dx, glyph.quad_x);
+        min_dy = @min(min_dy, glyph.quad_y);
+        max_dx = @max(max_dx, glyph.quad_x + glyph.glyph_width);
+        max_dy = @max(max_dy, glyph.quad_y + glyph.glyph_height);
     }
 
     return Rectangle{
         .x = self.inverseScalePosition(min_dx),
         .y = self.inverseScalePosition(min_dy),
-        .width = self.inverseScaleDimension(@intCast(u15, max_dx - min_dx)),
-        .height = self.inverseScaleDimension(@intCast(u15, max_dy - min_dy)),
+        .width = self.inverseScaleDimension(@as(u15, @intCast(max_dx - min_dx))),
+        .height = self.inverseScaleDimension(@as(u15, @intCast(max_dy - min_dy))),
     };
 }
 
@@ -567,13 +567,13 @@ pub fn render(self: Self, screen_size: Size) void {
     gles.enable(gles.BLEND);
 
     gles.bindBuffer(gles.ARRAY_BUFFER, self.vertex_buffer.instance.?);
-    gles.bufferData(gles.ARRAY_BUFFER, @intCast(gles.GLsizeiptr, @sizeOf(Vertex) * self.vertices.items.len), self.vertices.items.ptr, gles.STATIC_DRAW);
+    gles.bufferData(gles.ARRAY_BUFFER, @as(gles.GLsizeiptr, @intCast(@sizeOf(Vertex) * self.vertices.items.len)), self.vertices.items.ptr, gles.STATIC_DRAW);
 
-    gles.vertexAttribPointer(vertex_attributes.vPosition, 2, gles.FLOAT, gles.FALSE, @sizeOf(Vertex), @intToPtr(?*const anyopaque, @offsetOf(Vertex, "x")));
-    gles.vertexAttribPointer(vertex_attributes.vColor, 4, gles.UNSIGNED_BYTE, gles.TRUE, @sizeOf(Vertex), @intToPtr(?*const anyopaque, @offsetOf(Vertex, "r")));
-    gles.vertexAttribPointer(vertex_attributes.vUV, 2, gles.FLOAT, gles.FALSE, @sizeOf(Vertex), @intToPtr(?*const anyopaque, @offsetOf(Vertex, "u")));
+    gles.vertexAttribPointer(vertex_attributes.vPosition, 2, gles.FLOAT, gles.FALSE, @sizeOf(Vertex), @as(?*const anyopaque, @ptrFromInt(@offsetOf(Vertex, "x"))));
+    gles.vertexAttribPointer(vertex_attributes.vColor, 4, gles.UNSIGNED_BYTE, gles.TRUE, @sizeOf(Vertex), @as(?*const anyopaque, @ptrFromInt(@offsetOf(Vertex, "r"))));
+    gles.vertexAttribPointer(vertex_attributes.vUV, 2, gles.FLOAT, gles.FALSE, @sizeOf(Vertex), @as(?*const anyopaque, @ptrFromInt(@offsetOf(Vertex, "u"))));
 
-    var uniforms = glesh.fetchUniforms(self.shader_program.instance.?, Uniforms);
+    const uniforms = glesh.fetchUniforms(self.shader_program.instance.?, Uniforms);
 
     gles.useProgram(self.shader_program.instance.?);
     gles.uniform2i(uniforms.uScreenSize, screen_size.width, screen_size.height);
@@ -601,13 +601,13 @@ pub fn render(self: Self, screen_size: Size) void {
                 const rect_right = rect.x + rect.width;
                 const rect_bottom = rect.y + rect.height;
 
-                const left = std.math.max(clip_rect.x, rect.x);
-                const top = std.math.max(clip_rect.y, rect.y);
-                const right = std.math.min(clip_right, rect_right);
-                const bottom = std.math.min(clip_bottom, rect_bottom);
+                const left = @max(clip_rect.x, rect.x);
+                const top = @max(clip_rect.y, rect.y);
+                const right = @min(clip_right, rect_right);
+                const bottom = @min(clip_bottom, rect_bottom);
 
-                const width = @intCast(u15, if (right > left) right - left else 0);
-                const height = @intCast(u15, if (bottom > top) bottom - top else 0);
+                const width = @as(u15, @intCast(if (right > left) right - left else 0));
+                const height = @as(u15, @intCast(if (bottom > top) bottom - top else 0));
 
                 clip_rect = Rectangle{
                     .x = left,
@@ -675,15 +675,15 @@ pub fn render(self: Self, screen_size: Size) void {
                     const rot_about = vertices.rot_about orelse Point{ .x = 0, .y = 0 };
 
                     gles.uniform1f(uniforms.rotateAngle, rot_radians);
-                    const rotateAbout: [2]f32 = .{ @intToFloat(f32, rot_about.x), @intToFloat(f32, rot_about.y) };
-                    gles.uniform2fv(uniforms.rotateAbout, 1, @ptrCast([*]const f32, &rotateAbout));
+                    const rotateAbout: [2]f32 = .{ @as(f32, @floatFromInt(rot_about.x)), @as(f32, @floatFromInt(rot_about.y)) };
+                    gles.uniform2fv(uniforms.rotateAbout, 1, @as([*]const f32, @ptrCast(&rotateAbout)));
 
                     gles.bindTexture(gles.TEXTURE_2D, tex_handle.instance orelse 0);
 
                     gles.drawArrays(
                         gles.TRIANGLES,
-                        @intCast(gles.GLsizei, vertices.offset),
-                        @intCast(gles.GLsizei, vertices.count),
+                        @as(gles.GLsizei, @intCast(vertices.offset)),
+                        @as(gles.GLsizei, @intCast(vertices.count)),
                     );
                 },
             }
@@ -745,8 +745,8 @@ pub fn appendTriangles(self: *Self, texture: ?*ResourceManager.Texture, triangle
 /// 2---3
 /// ```
 pub fn fillQuad(self: *Self, corners: [4]Point, color: Color) DrawError!void {
-    var real_corners: [4]Point = undefined;
-    for (real_corners) |*dst, i| {
+    const real_corners: [4]Point = undefined;
+    for (real_corners, 0..) |*dst, i| {
         dst.* = self.scalePoint(corners[i]);
     }
     return self.fillQuadPixels(real_corners, color);
@@ -827,13 +827,13 @@ pub fn drawPartialTexturePixelsRot(self: *Self, real_rect: Rectangle, texture: *
     //  |   |   |   |   |   |   |   |   |
     // 0/8 1/8 2/8 3/8 4/8 5/8 6/8 7/8 8/8
 
-    const sx = 1.0 / @intToFloat(f32, texture.width);
-    const sy = 1.0 / @intToFloat(f32, texture.height);
+    const sx = 1.0 / @as(f32, @floatFromInt(texture.width));
+    const sy = 1.0 / @as(f32, @floatFromInt(texture.height));
 
-    const x0 = sx * @intToFloat(f32, source_rect.x);
-    const x1 = sx * @intToFloat(f32, source_rect.x + source_rect.width); // don't do off-by-one here, as we're sampling from "left edge" to "right edge"
-    const y0 = sy * @intToFloat(f32, source_rect.y);
-    const y1 = sy * @intToFloat(f32, source_rect.y + source_rect.height); // don't do off-by-one here, as we're sampling from "left edge" to "right edge"
+    const x0 = sx * @as(f32, @floatFromInt(source_rect.x));
+    const x1 = sx * @as(f32, @floatFromInt(source_rect.x + source_rect.width)); // don't do off-by-one here, as we're sampling from "left edge" to "right edge"
+    const y0 = sy * @as(f32, @floatFromInt(source_rect.y));
+    const y1 = sy * @as(f32, @floatFromInt(source_rect.y + source_rect.height)); // don't do off-by-one here, as we're sampling from "left edge" to "right edge"
 
     const color = tint orelse Color{ .r = 0xFF, .g = 0xFF, .b = 0xFF, .a = 0xFF };
     const tl = Vertex.init(real_rect.x, real_rect.y, color).offset(-1, -1).withUV(x0, y0);
@@ -884,18 +884,18 @@ pub fn drawCircle(self: *Self, x: i16, y: i16, radius: u15, color: Color) DrawEr
 pub fn drawCirclePixels(self: *Self, x: i16, y: i16, radius: u15, color: Color) DrawError!void {
     const segments = 36;
 
-    const r = @intToFloat(f32, radius);
+    const r = @as(f32, @floatFromInt(radius));
 
     var i: usize = 0;
     while (i < segments) : (i += 1) {
-        const angle_a = std.math.tau * @intToFloat(f32, i + 0) / segments;
-        const angle_b = std.math.tau * @intToFloat(f32, i + 1) / segments;
+        const angle_a = std.math.tau * @as(f32, @floatFromInt(i + 0)) / segments;
+        const angle_b = std.math.tau * @as(f32, @floatFromInt(i + 1)) / segments;
 
-        const dx0 = x + @floatToInt(i16, r * @cos(angle_a));
-        const dy0 = y + @floatToInt(i16, r * @sin(angle_a));
+        const dx0 = x + @as(i16, @intFromFloat(r * @cos(angle_a)));
+        const dy0 = y + @as(i16, @intFromFloat(r * @sin(angle_a)));
 
-        const dx1 = x + @floatToInt(i16, r * @cos(angle_b));
-        const dy1 = y + @floatToInt(i16, r * @sin(angle_b));
+        const dx1 = x + @as(i16, @intFromFloat(r * @cos(angle_b)));
+        const dy1 = y + @as(i16, @intFromFloat(r * @sin(angle_b)));
 
         try self.drawLinePixels(dx0, dy0, dx1, dy1, color);
     }
@@ -950,8 +950,8 @@ pub fn drawTriangle(self: *Self, tris: [3]Point, color: Color) DrawError!void {
 }
 
 pub fn drawTrianglePixels(self: *Self, tris: [3]Point, color: Color) DrawError!void {
-    var verts: [3]Vertex = undefined;
-    for (verts) |*vert, i| {
+    const verts: [3]Vertex = undefined;
+    for (verts, 0..) |*vert, i| {
         vert.* = Vertex.init(tris[i].x, tris[i].y, color);
     }
     try self.appendTriangles(null, &[_][3]Vertex{verts}, null, null);
@@ -997,8 +997,8 @@ pub const Vertex = extern struct {
     /// Makes a new vertex at the given integer coordinates
     fn init(x: i16, y: i16, color: Color) @This() {
         return .{
-            .x = @intToFloat(f32, x),
-            .y = @intToFloat(f32, y),
+            .x = @as(f32, @floatFromInt(x)),
+            .y = @as(f32, @floatFromInt(y)),
             .u = 0,
             .v = 0,
             .r = color.r,
@@ -1061,16 +1061,16 @@ pub const Font = struct {
     line_gap: i16,
 
     pub fn getScale(self: Font) f32 {
-        return c.stbtt_ScaleForPixelHeight(&self.font, @intToFloat(f32, self.font_size));
+        return c.stbtt_ScaleForPixelHeight(&self.font, @as(f32, @floatFromInt(self.font_size)));
     }
 
     pub fn scaleValue(self: Font, v: i16) f32 {
-        return @intToFloat(f32, v) * self.getScale();
+        return @as(f32, @floatFromInt(v)) * self.getScale();
     }
 
     /// Returns the height of a single text line of this font
     pub fn getLineHeight(self: Font) u15 {
-        return @intCast(u15, scaleInt(self.ascent - self.descent + self.line_gap, self.getScale()));
+        return @as(u15, @intCast(scaleInt(self.ascent - self.descent + self.line_gap, self.getScale())));
     }
 };
 

@@ -32,12 +32,12 @@ pub const Entry = struct {
         // Determine difference in key values.
         var d: Entry = undefined;
         d.key.len = self.key.len -% other.key.len;
-        for (self.key.items) |k, i| {
+        for (self.key.items, 0..) |k, i| {
             d.key.items[i] = k -% other.key.items[i];
         }
 
         // Determine difference in element values.
-        for (self.value.items) |e, i| {
+        for (self.value.items, 0..) |e, i| {
             d.value.len = self.value.len -% other.value.len;
             d.value.items[i] = Element{
                 .l1 = e.l1 -% other.value.items[i].l1,
@@ -60,7 +60,7 @@ pub const Elements = struct {
     items: [18]Element,
 
     fn allItemsEql(self: Elements, other: Elements) bool {
-        for (self.items) |a, i| {
+        for (self.items, 0..) |a, i| {
             const b = other.items[i];
             if (a.l1 != b.l1 or a.l2 != b.l2 or a.l3 != b.l3) {
                 return false;
@@ -223,7 +223,7 @@ pub fn compressToFile(self: *AllKeysFile, filename: []const u8) !void {
 
 pub fn compressTo(self: *AllKeysFile, writer: anytype) !void {
     var buf_writer = std.io.bufferedWriter(writer);
-    var out = std.io.bitWriter(.Little, buf_writer.writer());
+    var out = std.io.bitWriter(.little, buf_writer.writer());
 
     // Implicits
     std.debug.assert(self.implicits.items.len == 4); // we don't encode a length for implicits.
@@ -241,11 +241,11 @@ pub fn compressTo(self: *AllKeysFile, writer: anytype) !void {
     var emissions: usize = 0;
     comptime var flush_emissions = struct {
         fn flush_emissions(pending: *usize, _out: anytype) !void {
-            while (pending.* >= 32) : (pending.* -= 32) try _out.writeBits(@enumToInt(Opcode.emit_32), @bitSizeOf(Opcode));
-            while (pending.* >= 8) : (pending.* -= 8) try _out.writeBits(@enumToInt(Opcode.emit_8), @bitSizeOf(Opcode));
-            while (pending.* >= 4) : (pending.* -= 4) try _out.writeBits(@enumToInt(Opcode.emit_4), @bitSizeOf(Opcode));
-            while (pending.* >= 2) : (pending.* -= 2) try _out.writeBits(@enumToInt(Opcode.emit_2), @bitSizeOf(Opcode));
-            while (pending.* >= 1) : (pending.* -= 1) try _out.writeBits(@enumToInt(Opcode.emit_1), @bitSizeOf(Opcode));
+            while (pending.* >= 32) : (pending.* -= 32) try _out.writeBits(@intFromEnum(Opcode.emit_32), @bitSizeOf(Opcode));
+            while (pending.* >= 8) : (pending.* -= 8) try _out.writeBits(@intFromEnum(Opcode.emit_8), @bitSizeOf(Opcode));
+            while (pending.* >= 4) : (pending.* -= 4) try _out.writeBits(@intFromEnum(Opcode.emit_4), @bitSizeOf(Opcode));
+            while (pending.* >= 2) : (pending.* -= 2) try _out.writeBits(@intFromEnum(Opcode.emit_2), @bitSizeOf(Opcode));
+            while (pending.* >= 1) : (pending.* -= 1) try _out.writeBits(@intFromEnum(Opcode.emit_1), @bitSizeOf(Opcode));
         }
     }.flush_emissions;
     while (self.next()) |entry| {
@@ -262,11 +262,11 @@ pub fn compressTo(self: *AllKeysFile, writer: anytype) !void {
             try flush_emissions(&emissions, &out);
 
             const max_bit_size = diff.key.maxBitSize();
-            try out.writeBits(@enumToInt(Opcode.inc_key), @bitSizeOf(Opcode));
+            try out.writeBits(@intFromEnum(Opcode.inc_key), @bitSizeOf(Opcode));
             try out.writeBits(entry.key.len, 2);
             var diff_key_len: u2 = 0;
-            for (diff.key.items) |kv, i| {
-                if (kv != 0) diff_key_len = @intCast(u2, i + 1);
+            for (diff.key.items, 0..) |kv, i| {
+                if (kv != 0) diff_key_len = @as(u2, @intCast(i + 1));
             }
             try out.writeBits(diff_key_len, 2);
             try out.writeBits(max_bit_size, 6);
@@ -278,11 +278,11 @@ pub fn compressTo(self: *AllKeysFile, writer: anytype) !void {
             try flush_emissions(&emissions, &out);
 
             const max_bit_size = diff.value.maxBitSize();
-            try out.writeBits(@enumToInt(Opcode.inc_value), @bitSizeOf(Opcode));
+            try out.writeBits(@intFromEnum(Opcode.inc_value), @bitSizeOf(Opcode));
             try out.writeBits(entry.value.len, 5);
             var diff_value_len: u5 = 0;
-            for (diff.value.items) |ev, i| {
-                if (ev.l1 != 0 or ev.l2 != 0 or ev.l3 != 0) diff_value_len = @intCast(u5, i + 1);
+            for (diff.value.items, 0..) |ev, i| {
+                if (ev.l1 != 0 or ev.l2 != 0 or ev.l3 != 0) diff_value_len = @as(u5, @intCast(i + 1));
             }
             try out.writeBits(diff_value_len, 5);
             try out.writeBits(max_bit_size, 6);
@@ -299,7 +299,7 @@ pub fn compressTo(self: *AllKeysFile, writer: anytype) !void {
     }
     try flush_emissions(&emissions, &out);
 
-    try out.writeBits(@enumToInt(Opcode.eof), @bitSizeOf(Opcode));
+    try out.writeBits(@intFromEnum(Opcode.eof), @bitSizeOf(Opcode));
     try out.flushBits();
     try buf_writer.flush();
 }
@@ -335,7 +335,7 @@ pub fn decompress(allocator: mem.Allocator, reader: anytype) !AllKeysFile {
 
     while (true) {
         // Read a single operation.
-        var op = @intToEnum(Opcode, try in.readBitsNoEof(std.meta.Tag(Opcode), @bitSizeOf(Opcode)));
+        var op = @as(Opcode, @enumFromInt(try in.readBitsNoEof(std.meta.Tag(Opcode), @bitSizeOf(Opcode))));
 
         // If you want to inspect the # of different ops in a stream, uncomment this:
         //std.debug.print("{}\n", .{op});
@@ -376,8 +376,8 @@ pub fn decompress(allocator: mem.Allocator, reader: anytype) !AllKeysFile {
                 };
                 var j: usize = 0;
                 while (j < emissions) : (j += 1) {
-                    for (incrementor.key.items) |k, i| registers.key.items[i] +%= k;
-                    for (incrementor.value.items) |v, i| {
+                    for (incrementor.key.items, 0..) |k, i| registers.key.items[i] +%= k;
+                    for (incrementor.value.items, 0..) |v, i| {
                         registers.value.items[i].l1 +%= v.l1;
                         registers.value.items[i].l2 +%= v.l2;
                         registers.value.items[i].l3 +%= v.l3;

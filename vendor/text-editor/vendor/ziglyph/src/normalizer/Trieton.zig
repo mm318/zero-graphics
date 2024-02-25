@@ -63,7 +63,7 @@ pub fn find(self: Self, key: []const u8) ?Lookup {
     var current = &self.root;
     var result: ?Lookup = null;
 
-    for (key) |k, i| {
+    for (key, 0..) |k, i| {
         if (current.children[k] == null) break;
 
         if (current.children[k].?.value) |value| {

@@ -67,7 +67,7 @@ pub fn init(allocator: std.mem.Allocator) !Self {
 
         while (cp_diff_strs.next()) |cp_diff_str| : (i += 1) {
             cp_diff = try std.fmt.parseInt(isize, cp_diff_str, 16);
-            prev_cp = @intCast(u21, @as(isize, prev_cp) + cp_diff);
+            prev_cp = @as(u21, @intCast(@as(isize, prev_cp) + cp_diff));
             cps[i] = prev_cp;
         }
 
@@ -78,7 +78,7 @@ pub fn init(allocator: std.mem.Allocator) !Self {
             // i.e. 3D3;-42
             if (std.mem.indexOf(u8, element_diff_str, ".") == null) {
                 l1_diff = try std.fmt.parseInt(isize, element_diff_str, 16);
-                prev_l1 = @intCast(u16, @as(isize, prev_l1) + l1_diff);
+                prev_l1 = @as(u16, @intCast(@as(isize, prev_l1) + l1_diff));
 
                 elements[i] = Element{
                     .l1 = prev_l1,
@@ -91,7 +91,7 @@ pub fn init(allocator: std.mem.Allocator) !Self {
 
             var weight_strs = std.mem.split(u8, element_diff_str, ".");
             l1_diff = try std.fmt.parseInt(isize, weight_strs.next().?, 16);
-            prev_l1 = @intCast(u16, @as(isize, prev_l1) + l1_diff);
+            prev_l1 = @as(u16, @intCast(@as(isize, prev_l1) + l1_diff));
             elements[i] = Element{ .l1 = prev_l1 };
 
             var j: usize = 0;
@@ -143,21 +143,21 @@ fn implicitWeight(self: Self, cp: u21) [18]?Element {
 
     if (props.isUnifiedIdeograph(cp) and ((0x4E00 <= cp and cp <= 0x9FFF) or (0xF900 <= cp and cp <= 0xFAFF))) {
         base = 0xFB40;
-        aaaa = base + @intCast(u16, (cp >> 15));
-        bbbb = @intCast(u16, (cp & 0x7FFF)) | 0x8000;
+        aaaa = base + @as(u16, @intCast((cp >> 15)));
+        bbbb = @as(u16, @intCast((cp & 0x7FFF))) | 0x8000;
     } else if (props.isUnifiedIdeograph(cp) and !((0x4E00 <= cp and cp <= 0x9FFF) or (0xF900 <= cp and cp <= 0xFAFF))) {
         base = 0xFB80;
-        aaaa = base + @intCast(u16, (cp >> 15));
-        bbbb = @intCast(u16, (cp & 0x7FFF)) | 0x8000;
+        aaaa = base + @as(u16, @intCast((cp >> 15)));
+        bbbb = @as(u16, @intCast((cp & 0x7FFF))) | 0x8000;
     } else {
         for (self.implicits) |implicit| {
             if (implicit.start <= cp and cp <= implicit.end) {
                 aaaa = implicit.base;
 
                 if (0x18D00 <= cp and cp <= 0x18D8F) {
-                    bbbb = @truncate(u16, (cp - 17000)) | 0x8000;
+                    bbbb = @as(u16, @truncate((cp - 17000))) | 0x8000;
                 } else {
-                    bbbb = @intCast(u16, (cp - implicit.start)) | 0x8000;
+                    bbbb = @as(u16, @intCast((cp - implicit.start))) | 0x8000;
                 }
 
                 break;
@@ -166,8 +166,8 @@ fn implicitWeight(self: Self, cp: u21) [18]?Element {
 
         if (aaaa == 0) {
             base = 0xFBC0;
-            aaaa = base + @intCast(u16, (cp >> 15));
-            bbbb = @intCast(u16, (cp & 0x7FFF)) | 0x8000;
+            aaaa = base + @as(u16, @intCast((cp >> 15)));
+            bbbb = @as(u16, @intCast((cp & 0x7FFF))) | 0x8000;
         }
     }
 
@@ -242,7 +242,7 @@ fn getElements(self: Self, allocator: std.mem.Allocator, str: []const u8) ![]con
 
                 if (self.ducet.get(S)) |sc_elements| {
                     // S + C has an entry; Rotate C to be just after S.
-                    var segment = cp_list.items[tail_start..tail_index];
+                    const segment = cp_list.items[tail_start..tail_index];
                     std.mem.rotate(u21, segment, segment.len - 1);
 
                     // Add S + C elements to final collection.
@@ -333,7 +333,7 @@ pub fn sortKey(self: Self, allocator: std.mem.Allocator, str: []const u8) ![]con
 
 /// Orders strings `a` and `b` based only on the base characters; case and combining marks are ignored.
 pub fn primaryOrder(a: []const u16, b: []const u16) std.math.Order {
-    return for (a) |weight, i| {
+    return for (a, 0..) |weight, i| {
         if (weight == 0) break .eq; // End of level
         const order = std.math.order(weight, b[i]);
         if (order != .eq) break order;
@@ -344,7 +344,7 @@ pub fn primaryOrder(a: []const u16, b: []const u16) std.math.Order {
 pub fn secondaryOrder(a: []const u16, b: []const u16) std.math.Order {
     var last_level = false;
 
-    return for (a) |weight, i| {
+    return for (a, 0..) |weight, i| {
         if (weight == 0) {
             if (last_level) break .eq else last_level = true;
             continue;
@@ -357,7 +357,7 @@ pub fn secondaryOrder(a: []const u16, b: []const u16) std.math.Order {
 
 /// Orders strings `a` and `b` based on base characters, combining marks, and letter case.
 pub fn tertiaryOrder(a: []const u16, b: []const u16) std.math.Order {
-    return for (a) |weight, i| {
+    return for (a, 0..) |weight, i| {
         const order = std.math.order(weight, b[i]);
         if (order != .eq) break order;
     } else .eq;
@@ -503,7 +503,7 @@ pub fn descendingBase(self: Self, a: []const u8, b: []const u8) bool {
 
 test "UCA tests" {
     var path_buf: [1024]u8 = undefined;
-    var path = try std.fs.cwd().realpath(".", &path_buf);
+    const path = try std.fs.cwd().realpath(".", &path_buf);
     // Check if testing in this library path.
     if (!std.mem.endsWith(u8, path, "ziglyph")) return;
 
@@ -590,7 +590,7 @@ test "UCA tests" {
         if (order == .eq) {
             const len = if (prev_nfd.slice.len > current_nfd.slice.len) current_nfd.slice.len else prev_nfd.slice.len;
 
-            const tie_breaker = for (prev_nfd.slice[0..len]) |prev_cp, i| {
+            const tie_breaker = for (prev_nfd.slice[0..len], 0..) |prev_cp, i| {
                 const cp_order = std.math.order(prev_cp, current_nfd.slice[i]);
                 if (cp_order != .eq) break cp_order;
             } else .eq;

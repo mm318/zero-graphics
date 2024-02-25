@@ -222,8 +222,8 @@ fn implicitWeight(self: Self, cp: u21) AllKeysFile.Elements {
 
     var elements: Elements = undefined;
     elements.len = 2;
-    elements.items[0] = .{ .l1 = @truncate(u16, aaaa.?), .l2 = 0x0020, .l3 = 0x0002 };
-    elements.items[1] = .{ .l1 = @truncate(u16, bbbb), .l2 = 0x0000, .l3 = 0x0000 };
+    elements.items[0] = .{ .l1 = @as(u16, @truncate(aaaa.?)), .l2 = 0x0020, .l3 = 0x0002 };
+    elements.items[1] = .{ .l1 = @as(u16, @truncate(bbbb)), .l2 = 0x0000, .l3 = 0x0000 };
     return elements;
 }
 
@@ -239,7 +239,7 @@ pub fn asciiCmp(a: []const u8, b: []const u8) math.Order {
         short = a;
     }
 
-    for (short) |_, i| {
+    for (short, 0..) |_, i| {
         if (short[i] == long[i]) continue;
         return if (long_is_a) math.order(long[i], short[i]) else math.order(short[i], long[i]);
     }
@@ -297,7 +297,7 @@ pub fn keyLevelCmp(a: []const u16, b: []const u16, level: Level) math.Order {
         short = a;
     }
 
-    return for (short) |_, i| {
+    return for (short, 0..) |_, i| {
         if (short[i] == long[i]) {
             if (short[i] == 0) {
                 // New level.

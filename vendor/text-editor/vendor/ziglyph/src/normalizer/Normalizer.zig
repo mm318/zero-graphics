@@ -414,7 +414,7 @@ pub fn eqlBy(self: *Self, a: []const u8, b: []const u8, mode: CmpMode) !bool {
     if ((mode == .ignore_case or mode == .ident) and len_eql) {
         if (ascii_only) {
             // ASCII case insensitive.
-            for (a) |c, i| {
+            for (a, 0..) |c, i| {
                 const oc = b[i];
                 const lc = if (c >= 'A' and c <= 'Z') c ^ 32 else c;
                 const olc = if (oc >= 'A' and oc <= 'Z') oc ^ 32 else oc;

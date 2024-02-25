@@ -172,8 +172,8 @@ pub fn delete(editor: *TextEditor, direction: EditDirection, unit: EditUnit) voi
     if (cursor_start == cursor_end)
         return;
 
-    const byte_range_start = editor.graphemeToByteOffset(std.math.min(cursor_start, cursor_end));
-    const byte_range_end = editor.graphemeToByteOffset(std.math.max(cursor_start, cursor_end));
+    const byte_range_start = editor.graphemeToByteOffset(@min(cursor_start, cursor_end));
+    const byte_range_end = editor.graphemeToByteOffset(@max(cursor_start, cursor_end));
 
     // cannot fail as we're always reducing the range by at least one byte, never increase!
     editor.bytes.replaceRange(byte_range_start, byte_range_end - byte_range_start, "") catch unreachable;

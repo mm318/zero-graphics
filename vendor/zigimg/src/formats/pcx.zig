@@ -56,7 +56,7 @@ const RLEDecoder = struct {
 
     fn readByte(self: *RLEDecoder) ImageReadError!u8 {
         if (self.current_run) |*run| {
-            var result = run.value;
+            const result = run.value;
             run.remaining -= 1;
             if (run.remaining == 0) {
                 self.current_run = null;
@@ -64,7 +64,7 @@ const RLEDecoder = struct {
             return result;
         } else {
             while (true) {
-                var byte = try self.reader.readByte();
+                const byte = try self.reader.readByte();
                 if (byte == 0xC0) // skip over "zero length runs"
                     continue;
                 if ((byte & 0xC0) == 0xC0) {
@@ -189,7 +189,7 @@ pub const PCX = struct {
         self.width = @as(usize, self.header.xmax - self.header.xmin + 1);
         self.height = @as(usize, self.header.ymax - self.header.ymin + 1);
 
-        const has_dummy_byte = (@bitCast(i16, self.header.stride) - @bitCast(isize, self.width)) == 1;
+        const has_dummy_byte = (@as(i16, @bitCast(self.header.stride)) - @as(isize, @bitCast(self.width))) == 1;
         const actual_width = if (has_dummy_byte) self.width + 1 else self.width;
 
         var pixels = try color.PixelStorage.init(allocator, pixel_format, self.width * self.height);
@@ -214,16 +214,16 @@ pub const PCX = struct {
                         var i: usize = 0;
                         while (i < 8) : (i += 1) {
                             if (x < self.width) {
-                                storage.indices[y_stride + x] = @intCast(u1, (byte >> (7 - @intCast(u3, i))) & 0x01);
+                                storage.indices[y_stride + x] = @as(u1, @intCast((byte >> (7 - @as(u3, @intCast(i)))) & 0x01));
                                 x += 1;
                             }
                         }
                     },
                     .indexed4 => |storage| {
-                        storage.indices[y_stride + x] = @truncate(u4, byte >> 4);
+                        storage.indices[y_stride + x] = @as(u4, @truncate(byte >> 4));
                         x += 1;
                         if (x < self.width) {
-                            storage.indices[y_stride + x] = @truncate(u4, byte);
+                            storage.indices[y_stride + x] = @as(u4, @truncate(byte));
                             x += 1;
                         }
                     },
@@ -275,7 +275,7 @@ pub const PCX = struct {
             };
 
             var i: usize = 0;
-            while (i < std.math.min(pal.len, self.header.builtin_palette.len / 3)) : (i += 1) {
+            while (i < @min(pal.len, self.header.builtin_palette.len / 3)) : (i += 1) {
                 pal[i].r = self.header.builtin_palette[3 * i + 0];
                 pal[i].g = self.header.builtin_palette[3 * i + 1];
                 pal[i].b = self.header.builtin_palette[3 * i + 2];

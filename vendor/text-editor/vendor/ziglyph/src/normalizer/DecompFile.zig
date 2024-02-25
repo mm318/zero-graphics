@@ -81,9 +81,9 @@ pub const Entry = struct {
                 .len = self.value.len -% other.value.len,
             },
         };
-        value_form_diff.* = @enumToInt(self.value.form) -% @enumToInt(other.value.form);
-        for (d.key) |_, i| d.key[i] = self.key[i] -% other.key[i];
-        for (d.value.seq) |_, i| d.value.seq[i] = self.value.seq[i] -% other.value.seq[i];
+        value_form_diff.* = @intFromEnum(self.value.form) -% @intFromEnum(other.value.form);
+        for (d.key, 0..) |_, i| d.key[i] = self.key[i] -% other.key[i];
+        for (d.value.seq, 0..) |_, i| d.value.seq[i] = self.value.seq[i] -% other.value.seq[i];
         return d;
     }
 };
@@ -257,7 +257,7 @@ pub fn compressToFile(self: *DecompFile, filename: []const u8) !void {
 
 pub fn compressTo(self: *DecompFile, writer: anytype) !void {
     var buf_writer = std.io.bufferedWriter(writer);
-    var out = std.io.bitWriter(.Little, buf_writer.writer());
+    var out = std.io.bitWriter(.little, buf_writer.writer());
 
     // For the UDDC registers, we want one register to represent each possible value in a single
     // entry; we will emit opcodes to modify these registers into the desired form to produce a
@@ -277,16 +277,16 @@ pub fn compressTo(self: *DecompFile, writer: anytype) !void {
         // Infrequently changed: key_len, value.form, and value.len registers. Emit opcodes to
         // update them if needed.
         if (diff.key_len != 0) {
-            try out.writeBits(@enumToInt(Opcode.set_key_len_and_key), @bitSizeOf(Opcode));
+            try out.writeBits(@intFromEnum(Opcode.set_key_len_and_key), @bitSizeOf(Opcode));
             try out.writeBits(entry.key_len, 3);
             _ = try out.write(entry.key[0..entry.key_len]);
         }
         if (diff_value_form != 0) {
-            try out.writeBits(@enumToInt(Opcode.set_value_form), @bitSizeOf(Opcode));
+            try out.writeBits(@intFromEnum(Opcode.set_value_form), @bitSizeOf(Opcode));
             try out.writeBits(diff_value_form, @bitSizeOf(Form));
         }
         if (diff.value.len != 0) {
-            try out.writeBits(@enumToInt(Opcode.set_value_len), @bitSizeOf(Opcode));
+            try out.writeBits(@intFromEnum(Opcode.set_value_len), @bitSizeOf(Opcode));
             try out.writeBits(entry.value.len, 5);
         }
 
@@ -294,7 +294,7 @@ pub fn compressTo(self: *DecompFile, writer: anytype) !void {
         var seq_0_change = diff.value.seq[0] != 0 and mem.eql(u21, diff.value.seq[1..], ([_]u21{0} ** 17)[0..]);
         var seq_0_1_change = diff.value.seq[0] != 0 and diff.value.seq[1] != 0 and mem.eql(u21, diff.value.seq[2..], ([_]u21{0} ** 16)[0..]);
         if (seq_0_change and mem.eql(u8, &diff.key, &[4]u8{ 0, 1, 0, 0 })) {
-            try out.writeBits(@enumToInt(Opcode.increment_key_1_and_set_value_seq_0_and_emit), @bitSizeOf(Opcode));
+            try out.writeBits(@intFromEnum(Opcode.increment_key_1_and_set_value_seq_0_and_emit), @bitSizeOf(Opcode));
             try out.writeBits(entry.value.seq[0], 21);
         } else if (seq_0_change and mem.eql(u8, &diff.key, &[4]u8{ 0, 0, 1, 0 })) {
             // Within this category, of all diff.value.seq[0] values:
@@ -311,13 +311,13 @@ pub fn compressTo(self: *DecompFile, writer: anytype) !void {
                 }
             }
             if (fits_2) {
-                try out.writeBits(@enumToInt(Opcode.increment_key_2_and_set_value_seq_0_2bit_and_emit), @bitSizeOf(Opcode));
+                try out.writeBits(@intFromEnum(Opcode.increment_key_2_and_set_value_seq_0_2bit_and_emit), @bitSizeOf(Opcode));
                 try out.writeBits(diff.value.seq[0], 2);
             } else if (fits_12) {
-                try out.writeBits(@enumToInt(Opcode.increment_key_2_and_set_value_seq_0_12bit_and_emit), @bitSizeOf(Opcode));
+                try out.writeBits(@intFromEnum(Opcode.increment_key_2_and_set_value_seq_0_12bit_and_emit), @bitSizeOf(Opcode));
                 try out.writeBits(diff.value.seq[0], 12);
             } else {
-                try out.writeBits(@enumToInt(Opcode.increment_key_2_and_set_value_seq_0_21bit_and_emit), @bitSizeOf(Opcode));
+                try out.writeBits(@intFromEnum(Opcode.increment_key_2_and_set_value_seq_0_21bit_and_emit), @bitSizeOf(Opcode));
                 try out.writeBits(diff.value.seq[0], 21);
             }
         } else if (seq_0_change and mem.eql(u8, &diff.key, &[4]u8{ 0, 0, 0, 1 })) {
@@ -335,21 +335,21 @@ pub fn compressTo(self: *DecompFile, writer: anytype) !void {
                 }
             }
             if (fits_2) {
-                try out.writeBits(@enumToInt(Opcode.increment_key_3_and_set_value_seq_0_2bit_and_emit), @bitSizeOf(Opcode));
+                try out.writeBits(@intFromEnum(Opcode.increment_key_3_and_set_value_seq_0_2bit_and_emit), @bitSizeOf(Opcode));
                 try out.writeBits(diff.value.seq[0], 2);
             } else if (fits_8) {
-                try out.writeBits(@enumToInt(Opcode.increment_key_3_and_set_value_seq_0_8bit_and_emit), @bitSizeOf(Opcode));
+                try out.writeBits(@intFromEnum(Opcode.increment_key_3_and_set_value_seq_0_8bit_and_emit), @bitSizeOf(Opcode));
                 try out.writeBits(diff.value.seq[0], 8);
             } else {
-                try out.writeBits(@enumToInt(Opcode.increment_key_3_and_set_value_seq_0_21bit_and_emit), @bitSizeOf(Opcode));
+                try out.writeBits(@intFromEnum(Opcode.increment_key_3_and_set_value_seq_0_21bit_and_emit), @bitSizeOf(Opcode));
                 try out.writeBits(diff.value.seq[0], 21);
             }
         } else if (seq_0_1_change and mem.eql(u8, &diff.key, &[4]u8{ 0, 1, 0, 0 })) {
-            try out.writeBits(@enumToInt(Opcode.increment_key_1_and_set_value_seq_0_1_and_emit), @bitSizeOf(Opcode));
+            try out.writeBits(@intFromEnum(Opcode.increment_key_1_and_set_value_seq_0_1_and_emit), @bitSizeOf(Opcode));
             try out.writeBits(entry.value.seq[0], 21);
             try out.writeBits(entry.value.seq[1], 21);
         } else if (seq_0_1_change and mem.eql(u8, &diff.key, &[4]u8{ 0, 0, 1, 0 })) {
-            try out.writeBits(@enumToInt(Opcode.increment_key_2_and_set_value_seq_0_1_and_emit), @bitSizeOf(Opcode));
+            try out.writeBits(@intFromEnum(Opcode.increment_key_2_and_set_value_seq_0_1_and_emit), @bitSizeOf(Opcode));
             try out.writeBits(entry.value.seq[0], 21);
             try out.writeBits(entry.value.seq[1], 21);
         } else {
@@ -368,15 +368,15 @@ pub fn compressTo(self: *DecompFile, writer: anytype) !void {
             }
 
             if (fits_2) {
-                try out.writeBits(@enumToInt(Opcode.set_key_and_value_seq_2bit_and_emit), @bitSizeOf(Opcode));
+                try out.writeBits(@intFromEnum(Opcode.set_key_and_value_seq_2bit_and_emit), @bitSizeOf(Opcode));
                 _ = try out.write(entry.key[0..entry.key_len]);
                 for (diff.value.seq[0..entry.value.len]) |s| try out.writeBits(s, 2);
             } else if (fits_8) {
-                try out.writeBits(@enumToInt(Opcode.set_key_and_value_seq_8bit_and_emit), @bitSizeOf(Opcode));
+                try out.writeBits(@intFromEnum(Opcode.set_key_and_value_seq_8bit_and_emit), @bitSizeOf(Opcode));
                 _ = try out.write(entry.key[0..entry.key_len]);
                 for (diff.value.seq[0..entry.value.len]) |s| try out.writeBits(s, 8);
             } else {
-                try out.writeBits(@enumToInt(Opcode.set_key_and_value_seq_21bit_and_emit), @bitSizeOf(Opcode));
+                try out.writeBits(@intFromEnum(Opcode.set_key_and_value_seq_21bit_and_emit), @bitSizeOf(Opcode));
                 _ = try out.write(entry.key[0..entry.key_len]);
                 for (diff.value.seq[0..entry.value.len]) |s| try out.writeBits(s, 21);
             }
@@ -384,7 +384,7 @@ pub fn compressTo(self: *DecompFile, writer: anytype) !void {
 
         registers = entry;
     }
-    try out.writeBits(@enumToInt(Opcode.eof), @bitSizeOf(Opcode));
+    try out.writeBits(@intFromEnum(Opcode.eof), @bitSizeOf(Opcode));
     try out.flushBits();
     try buf_writer.flush();
 }
@@ -406,7 +406,7 @@ pub fn decompress(allocator: mem.Allocator, reader: anytype) !DecompFile {
 
     while (true) {
         // Read a single operation.
-        var op = @intToEnum(Opcode, try in.readBitsNoEof(std.meta.Tag(Opcode), @bitSizeOf(Opcode)));
+        var op = @as(Opcode, @enumFromInt(try in.readBitsNoEof(std.meta.Tag(Opcode), @bitSizeOf(Opcode))));
 
         // If you want to inspect the # of different ops in a stream, uncomment this:
         //std.debug.print("{}\n", .{op});
@@ -489,7 +489,7 @@ pub fn decompress(allocator: mem.Allocator, reader: anytype) !DecompFile {
                 _ = try in.read(registers.key[0..registers.key_len]);
             },
             .set_value_form => {
-                registers.value.form = @intToEnum(Form, @enumToInt(registers.value.form) +% try in.readBitsNoEof(std.meta.Tag(Form), @bitSizeOf(Form)));
+                registers.value.form = @as(Form, @enumFromInt(@intFromEnum(registers.value.form) +% try in.readBitsNoEof(std.meta.Tag(Form), @bitSizeOf(Form))));
             },
             .set_value_len => {
                 registers.value.len = try in.readBitsNoEof(usize, 5);

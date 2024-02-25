@@ -217,7 +217,7 @@ const MeshStream = struct {
 
         std.mem.set(u8, stream.target_buffer.items, 0x55); // set to "undefined"
 
-        const header = @ptrCast(*align(1) z3d.static_model.Header, &stream.target_buffer.items[0]);
+        const header = @as(*align(1) z3d.static_model.Header, @ptrCast(&stream.target_buffer.items[0]));
         header.* = z3d.static_model.Header{
             .common = z3d.CommonHeader{ .type = .static },
             .vertex_count = std.mem.nativeToLittle(u32, std.math.cast(u32, vertices) orelse return stream.setError(error.Overflow)),
@@ -233,7 +233,7 @@ const MeshStream = struct {
         if (stream.failed != null)
             return;
 
-        const vertices = @ptrCast([*]align(1) z3d.static_model.Vertex, &stream.target_buffer.items[stream.vertexOffset()]);
+        const vertices = @as([*]align(1) z3d.static_model.Vertex, @ptrCast(&stream.target_buffer.items[stream.vertexOffset()]));
         vertices[stream.vertex_offset] = z3d.static_model.Vertex{
             .x = x,
             .y = y,
@@ -254,7 +254,7 @@ const MeshStream = struct {
         if (stream.failed != null)
             return;
 
-        const indices = @ptrCast([*]align(1) z3d.static_model.Index, &stream.target_buffer.items[stream.indexOffset()]);
+        const indices = @as([*]align(1) z3d.static_model.Index, @ptrCast(&stream.target_buffer.items[stream.indexOffset()]));
         indices[stream.index_offset + 0] = index0;
         indices[stream.index_offset + 1] = index1;
         indices[stream.index_offset + 2] = index2;
@@ -271,7 +271,7 @@ const MeshStream = struct {
         if (texture_file != null and texture_file.?.len > 120)
             return stream.setError(error.FileNameTooLong);
 
-        const meshes = @ptrCast([*]align(1) z3d.static_model.Mesh, &stream.target_buffer.items[stream.meshOffset()]);
+        const meshes = @as([*]align(1) z3d.static_model.Mesh, @ptrCast(&stream.target_buffer.items[stream.meshOffset()]));
         meshes[stream.mesh_offset] = z3d.static_model.Mesh{
             .offset = std.mem.nativeToLittle(u32, std.math.cast(u32, offset) orelse return stream.setError(error.Overflow)),
             .length = std.mem.nativeToLittle(u32, std.math.cast(u32, length) orelse return stream.setError(error.Overflow)),

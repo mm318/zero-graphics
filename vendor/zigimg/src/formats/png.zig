@@ -79,8 +79,8 @@ pub const PNG = struct {
         try ensureWritable(image);
 
         const header = HeaderData{
-            .width = @truncate(u32, image.width),
-            .height = @truncate(u32, image.height),
+            .width = @as(u32, @truncate(image.width)),
+            .height = @as(u32, @truncate(image.height)),
             .bit_depth = image.pixelFormat().bitsPerChannel(),
             .color_type = try types.ColorType.fromPixelFormat(image.pixelFormat()),
             .compression_method = .deflate,
@@ -101,7 +101,7 @@ pub const PNG = struct {
         if (header.filter_method != .adaptive)
             return ImageWriteError.Unsupported;
 
-        var writer = write_stream.writer();
+        const writer = write_stream.writer();
 
         try writeSignature(writer);
         try writeHeader(writer, header);
@@ -139,13 +139,13 @@ pub const PNG = struct {
         var chunk = chunk_writer.chunkWriter(writer, "IHDR");
         var chunk_wr = chunk.writer();
 
-        try chunk_wr.writeIntBig(u32, header.width);
-        try chunk_wr.writeIntBig(u32, header.height);
-        try chunk_wr.writeIntBig(u8, header.bit_depth);
-        try chunk_wr.writeIntBig(u8, @enumToInt(header.color_type));
-        try chunk_wr.writeIntBig(u8, @enumToInt(header.compression_method));
-        try chunk_wr.writeIntBig(u8, @enumToInt(header.filter_method));
-        try chunk_wr.writeIntBig(u8, @enumToInt(header.interlace_method));
+        try chunk_wr.writeInt(u32, header.width, .big);
+        try chunk_wr.writeInt(u32, header.height, .big);
+        try chunk_wr.writeInt(u8, header.bit_depth, .big);
+        try chunk_wr.writeInt(u8, @intFromEnum(header.color_type), .big);
+        try chunk_wr.writeInt(u8, @intFromEnum(header.compression_method), .big);
+        try chunk_wr.writeInt(u8, @intFromEnum(header.filter_method), .big);
+        try chunk_wr.writeInt(u8, @intFromEnum(header.interlace_method), .big);
 
         try chunk.flush();
     }
@@ -155,7 +155,7 @@ pub const PNG = struct {
         // Note: there may be more than 1 chunk
         // TODO: provide choice of how much it buffers (how much data per idat chunk)
         var chunks = chunk_writer.chunkWriter(writer, "IDAT");
-        var chunk_wr = chunks.writer();
+        const chunk_wr = chunks.writer();
 
         var zlib: ZlibCompressor(@TypeOf(chunk_wr)) = undefined;
         try zlib.init(allocator, chunk_wr);

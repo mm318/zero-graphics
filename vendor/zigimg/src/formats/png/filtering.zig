@@ -47,9 +47,9 @@ pub fn filter(writer: anytype, pixels: color.PixelStorage, filter_choice: Filter
             .specified => |f| f,
         };
 
-        try writer.writeByte(@enumToInt(filter_type));
+        try writer.writeByte(@intFromEnum(filter_type));
 
-        for (scanline) |sample, i| {
+        for (scanline, 0..) |sample, i| {
             const previous: u8 = if (i >= pixel_len) scanline[i - pixel_len] else 0;
             const above: u8 = if (previous_scanline) |b| b[i] else 0;
             const above_previous = if (previous_scanline) |b| (if (i >= pixel_len) b[i - pixel_len] else 0) else 0;
@@ -77,7 +77,7 @@ fn filterChoiceHeuristic(scanline: []const u8, previous_scanline: ?[]const u8, p
         var combo: usize = 0;
         var score: usize = 0;
 
-        for (scanline) |sample, i| {
+        for (scanline, 0..) |sample, i| {
             const previous: u8 = if (i >= pixel_len) scanline[i - pixel_len] else 0;
             const above: u8 = if (previous_scanline) |b| b[i] else 0;
             const above_previous = if (previous_scanline) |b| (if (i >= pixel_len) b[i - pixel_len] else 0) else 0;
@@ -108,14 +108,14 @@ fn filterChoiceHeuristic(scanline: []const u8, previous_scanline: ?[]const u8, p
 }
 
 fn average(a: u9, b: u9) u8 {
-    return @truncate(u8, (a + b) / 2);
+    return @as(u8, @truncate((a + b) / 2));
 }
 
 fn paeth(b4: u8, up: u8, b4_up: u8) u8 {
-    const p: i16 = @intCast(i16, b4) + up - b4_up;
-    const pa = std.math.absInt(p - b4) catch unreachable;
-    const pb = std.math.absInt(p - up) catch unreachable;
-    const pc = std.math.absInt(p - b4_up) catch unreachable;
+    const p: i16 = @as(i16, @intCast(b4)) + up - b4_up;
+    const pa = @abs(p - b4);
+    const pb = @abs(p - up);
+    const pc = @abs(p - b4_up);
 
     if (pa <= pb and pa <= pc) {
         return b4;

@@ -2,45 +2,50 @@ const std = @import("std");
 
 const Self = @This();
 
-step: std.build.Step,
-builder: *std.build.Builder,
-source: std.build.FileSource,
+step: std.Build.Step,
+builder: *std.Build,
+source: std.Build.LazyPath,
 
-output_file: std.build.GeneratedFile,
+output_file: std.Build.GeneratedFile,
 
-pub fn create(builder: *std.build.Builder, file: []const u8) *Self {
+pub fn create(builder: *std.Build, file: []const u8) *Self {
     return createSource(builder, .{ .path = file });
 }
 
-pub fn createSource(builder: *std.build.Builder, source: std.build.FileSource) *Self {
+pub fn createSource(builder: *std.Build, source: std.Build.LazyPath) *Self {
     const self = builder.allocator.create(Self) catch unreachable;
     self.* = Self{
-        .step = std.build.Step.init(.custom, "build-template", builder.allocator, make),
+        .step = std.Build.Step.init(.{
+            .id = .custom,
+            .name = "build-template",
+            .owner = builder,
+            .makeFn = make,
+        }),
         .builder = builder,
         .source = source,
-
-        .output_file = std.build.GeneratedFile{ .step = &self.step },
+        .output_file = std.Build.GeneratedFile{ .step = &self.step },
     };
     source.addStepDependencies(&self.step);
     return self;
 }
 
-pub fn transform(builder: *std.build.Builder, file: []const u8) std.build.FileSource {
+pub fn transform(builder: *std.Build, file: []const u8) std.Build.LazyPath {
     const step = create(builder, file);
     return step.getFileSource();
 }
 
-pub fn transformSource(builder: *std.build.Builder, source: std.build.FileSource) std.build.FileSource {
+pub fn transformSource(builder: *std.Build, source: std.Build.LazyPath) std.Build.LazyPath {
     const step = createSource(builder, source);
     return step.getFileSource();
 }
 
 /// Returns the file source
-pub fn getFileSource(self: *const Self) std.build.FileSource {
-    return std.build.FileSource{ .generated = &self.output_file };
+pub fn getFileSource(self: *const Self) std.Build.LazyPath {
+    return std.Build.LazyPath{ .generated = &self.output_file };
 }
 
-fn make(step: *std.build.Step) !void {
+fn make(step: *std.Build.Step, prog_node: *std.Progress.Node) anyerror!void {
+    _ = prog_node;
     const self = @fieldParentPtr(Self, "step", step);
 
     const source_file_name = self.source.getPath(self.builder);
@@ -76,7 +81,7 @@ fn make(step: *std.build.Step) !void {
         var buffered_reader = std.io.bufferedReader(file.reader());
 
         var reader = buffered_reader.reader();
-        var writer = output_buffer.writer();
+        const writer = output_buffer.writer();
 
         const UnderlyingWriter = @TypeOf(writer);
 
@@ -246,7 +251,7 @@ fn make(step: *std.build.Step) !void {
     var hash_basename: [64]u8 = undefined;
     _ = std.fs.base64_encoder.encode(&hash_basename, &digest);
     const output_dir = try std.fs.path.join(self.builder.allocator, &[_][]const u8{
-        self.builder.cache_root,
+        self.builder.cache_root.path orelse ".",
         "o",
         &hash_basename,
     });

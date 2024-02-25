@@ -3,24 +3,24 @@ const std = @import("std");
 const Sdk = @import("Sdk.zig");
 const Assimp = @import("vendor/zig-assimp/Sdk.zig");
 
-pub fn build(b: *std.build.Builder) !void {
-    const enable_android = b.option(bool, "enable-android", "Enables android build support. Requires the android sdk and ndk to be installed.") orelse false;
+pub fn build(b: *std.Build) !void {
+    const target = b.standardTargetOptions(.{});
+    const mode = b.standardOptimizeOption(.{});
 
-    const app_only_step = b.step("app", "Builds only the desktop application");
-
-    const sdk = Sdk.init(b, enable_android);
+    const sdk = Sdk.init(b, target, mode);
     const assimp = Assimp.init(b);
 
-    const mode = b.standardReleaseOptions();
-    const platform = sdk.standardPlatformOptions();
+    const arg_module = b.createModule(.{ .root_source_file = .{ .path = "vendor/args/args.zig" } });
 
     {
-        const zero_init = b.addExecutable("zero-init", "tools/zero-init/main.zig");
-        zero_init.addPackage(std.build.Pkg{
-            .name = "args",
-            .source = .{ .path = "vendor/args/args.zig" },
+        const zero_init = b.addExecutable(.{
+            .name = "zero-init",
+            .target = target,
+            .root_source_file = .{ .path = "tools/zero-init/main.zig" },
+            .optimize = mode,
         });
-        zero_init.install();
+        zero_init.root_module.addImport("args", arg_module);
+        b.installArtifact(zero_init);
     }
 
     // compile the zero-init example so can be sure that it actually compiles!
@@ -28,71 +28,50 @@ pub fn build(b: *std.build.Builder) !void {
         const app = sdk.createApplication("zero_init_app", "tools/zero-init/template/src/main.zig");
         app.setDisplayName("ZeroGraphics Init App");
         app.setPackageName("net.random_projects.zero_graphics.init_app");
-        app.setBuildMode(mode);
-
-        b.getInstallStep().dependOn(app.compileFor(platform).getStep());
-        b.getInstallStep().dependOn(app.compileFor(.web).getStep());
-        if (enable_android) {
-            b.getInstallStep().dependOn(app.compileFor(.android).getStep());
-        }
+        b.getInstallStep().dependOn(app.compileForWeb(mode).getStep());
     }
 
     {
-        const converter_api = b.addTranslateC(.{ .path = "tools/zero-convert/api.h" });
+        const converter_api = b.addTranslateC(.{
+            .target = target,
+            .source_file = .{ .path = "tools/zero-convert/api.h" },
+            .optimize = mode,
+        });
 
-        const converter = b.addExecutable("zero-convert", "tools/zero-convert/main.zig");
-        converter.addCSourceFile("tools/zero-convert/converter.cpp", &[_][]const u8{
+        const api_module = b.createModule(.{ .root_source_file = converter_api.getOutput() });
+        const z3d_module = b.createModule(.{ .root_source_file = .{ .path = "src/rendering/z3d-format.zig" } });
+
+        const converter = b.addExecutable(.{
+            .name = "zero-convert",
+            .target = target,
+            .root_source_file = .{ .path = "tools/zero-convert/main.zig" },
+            .optimize = mode,
+        });
+        converter.addCSourceFile(.{ .file = .{ .path = "tools/zero-convert/converter.cpp" }, .flags = &[_][]const u8{
             "-std=c++17",
             "-Wall",
             "-Wextra",
-        });
-        converter.addPackage(std.build.Pkg{
-            .name = "api",
-            .source = .{ .generated = &converter_api.output_file },
-        });
-        converter.addPackage(std.build.Pkg{
-            .name = "z3d",
-            .source = .{ .path = "src/rendering/z3d-format.zig" },
-        });
-        converter.addPackage(std.build.Pkg{
-            .name = "args",
-            .source = .{ .path = "vendor/args/args.zig" },
-        });
+        } });
+        converter.root_module.addImport("api", api_module);
+        converter.root_module.addImport("z3d", z3d_module);
+        converter.root_module.addImport("args", arg_module);
         converter.linkLibC();
         converter.linkLibCpp();
         assimp.addTo(converter, .static, Assimp.FormatSet.default);
-        converter.install();
+        b.installArtifact(converter);
     }
+
+    const zlm_module = b.createModule(.{ .root_source_file = .{ .path = "vendor/zlm/zlm.zig" } });
 
     const app = sdk.createApplication("demo_application", "examples/features/feature-demo.zig");
     app.setDisplayName("ZeroGraphics Demo");
     app.setPackageName("net.random_projects.zero_graphics.demo");
-    app.setBuildMode(mode);
-
-    app.addPackage(std.build.Pkg{
-        .name = "zlm",
-        .source = .{ .path = "vendor/zlm/zlm.zig" },
-    });
-
-    {
-        const desktop_exe = app.compileFor(platform);
-        desktop_exe.install();
-        app_only_step.dependOn(&desktop_exe.data.desktop.install_step.?.step);
-
-        const run_cmd = desktop_exe.run();
-        run_cmd.step.dependOn(b.getInstallStep());
-        if (b.args) |args| {
-            run_cmd.addArgs(args);
-        }
-
-        const run_step = b.step("run", "Run the app");
-        run_step.dependOn(&run_cmd.step);
-    }
+    app.addPackage("zero-graphics", sdk.getLibraryPackage());
+    app.addPackage("zlm", zlm_module);
 
     // Build wasm application
-    // TODO: Reinclude when https://github.com/llvm/llvm-project/issues/58557 is fixed.
     {
-        const wasm_build = app.compileFor(.web);
+        const wasm_build = app.compileForWeb(mode);
         wasm_build.install();
 
         const serve = wasm_build.run();
@@ -104,74 +83,56 @@ pub fn build(b: *std.build.Builder) !void {
         run_step.dependOn(&serve.step);
     }
 
-    if (enable_android) {
-        const android_build = app.compileFor(.android);
-        android_build.install();
+    // {
+    //     const zero_g_pkg = sdk.getLibraryPackage("zero-graphics");
+    //     const zero_ui_pkg = std.build.Pkg{
+    //         .name = "zero-ui",
+    //         .source = .{ .path = "src/ui/core/ui.zig" },
+    //         .dependencies = &.{
+    //             zero_g_pkg,
+    //             .{
+    //                 .name = "controls",
+    //                 .source = .{ .path = "src/ui/standard-controls/standard-controls.zig" },
+    //                 .dependencies = &.{
+    //                     .{
+    //                         .name = "ui",
+    //                         .source = .{ .path = "src/ui/core/ui.zig" },
+    //                     },
+    //                     .{
+    //                         .name = "TextEditor",
+    //                         .source = .{ .path = "vendor/text-editor/src/TextEditor.zig" },
+    //                         .dependencies = &.{
+    //                             .{
+    //                                 .name = "ziglyph",
+    //                                 .source = .{ .path = "vendor/ziglyph/src/ziglyph.zig" },
+    //                             },
+    //                         },
+    //                     },
+    //                 },
+    //             },
+    //         },
+    //     };
 
-        b.step("init-keystore", "Initializes a fresh debug keystore.").dependOn(sdk.initializeKeystore());
+    //     const ui_demo = sdk.createApplication("ui_demo", "examples/ui/demo.zig");
+    //     ui_demo.setDisplayName("Zero UI");
+    //     ui_demo.setPackageName("net.random_projects.zero_graphics.ui_demo");
+    //     ui_demo.setBuildMode(mode);
+    //     ui_demo.addPackage(zero_ui_pkg);
+    //     ui_demo.addPackage(.{
+    //         .name = "layout-engine",
+    //         .source = .{ .path = "src/ui/standard-layout/standard-layout.zig" },
+    //         .dependencies = &.{zero_ui_pkg},
+    //     });
+    //     ui_demo.addPackage(.{
+    //         .name = "render-engine",
+    //         .source = .{ .path = "src/ui/standard-renderer/standard-renderer.zig" },
+    //         .dependencies = &.{ zero_ui_pkg, zero_g_pkg },
+    //     });
 
-        const push = android_build.data.android.install();
+    //     ui_demo.setInitialResolution(.{ .windowed = .{ .width = 480, .height = 320 } });
 
-        const run = android_build.data.android.run();
-        run.dependOn(push);
+    //     const ui_demo_exe = ui_demo.compileForWeb(platform);
 
-        const push_step = b.step("install-app", "Push the app to the default ADB target");
-        push_step.dependOn(push);
-
-        const run_step = b.step("run-app", "Runs the Android app on the default ADB target");
-        run_step.dependOn(run);
-    }
-
-    {
-        const zero_g_pkg = sdk.getLibraryPackage("zero-graphics");
-        const zero_ui_pkg = std.build.Pkg{
-            .name = "zero-ui",
-            .source = .{ .path = "src/ui/core/ui.zig" },
-            .dependencies = &.{
-                zero_g_pkg,
-                .{
-                    .name = "controls",
-                    .source = .{ .path = "src/ui/standard-controls/standard-controls.zig" },
-                    .dependencies = &.{
-                        .{
-                            .name = "ui",
-                            .source = .{ .path = "src/ui/core/ui.zig" },
-                        },
-                        .{
-                            .name = "TextEditor",
-                            .source = .{ .path = "vendor/text-editor/src/TextEditor.zig" },
-                            .dependencies = &.{
-                                .{
-                                    .name = "ziglyph",
-                                    .source = .{ .path = "vendor/ziglyph/src/ziglyph.zig" },
-                                },
-                            },
-                        },
-                    },
-                },
-            },
-        };
-
-        const ui_demo = sdk.createApplication("ui_demo", "examples/ui/demo.zig");
-        ui_demo.setDisplayName("Zero UI");
-        ui_demo.setPackageName("net.random_projects.zero_graphics.ui_demo");
-        ui_demo.setBuildMode(mode);
-        ui_demo.addPackage(zero_ui_pkg);
-        ui_demo.addPackage(.{
-            .name = "layout-engine",
-            .source = .{ .path = "src/ui/standard-layout/standard-layout.zig" },
-            .dependencies = &.{zero_ui_pkg},
-        });
-        ui_demo.addPackage(.{
-            .name = "render-engine",
-            .source = .{ .path = "src/ui/standard-renderer/standard-renderer.zig" },
-            .dependencies = &.{ zero_ui_pkg, zero_g_pkg },
-        });
-
-        ui_demo.setInitialResolution(.{ .windowed = .{ .width = 480, .height = 320 } });
-
-        const ui_demo_exe = ui_demo.compileFor(platform);
-
-        ui_demo_exe.install();
-    }
+    //     ui_demo_exe.install();
+    // }
 }

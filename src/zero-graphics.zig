@@ -62,8 +62,8 @@ pub const Point = struct {
     }
 
     pub fn distance2(a: Point, b: Point) u32 {
-        const dx = @as(u32, std.math.absCast(a.x - b.x));
-        const dy = @as(u32, std.math.absCast(a.x - b.x));
+        const dx = @as(u32, @abs(a.x - b.x));
+        const dy = @as(u32, @abs(a.x - b.x));
         return dx * dx + dy * dy;
     }
 };
@@ -123,8 +123,8 @@ pub const Rectangle = struct {
         return Rectangle{
             .x = self.x - delta,
             .y = self.y - delta,
-            .width = @intCast(u15, if (self.width > 2 * delta) @as(i16, self.width) + 2 * delta else 0),
-            .height = @intCast(u15, if (self.height > 2 * delta) @as(i16, self.height) + 2 * delta else 0),
+            .width = @as(u15, @intCast(if (self.width > 2 * delta) @as(i16, self.width) + 2 * delta else 0)),
+            .height = @as(u15, @intCast(if (self.height > 2 * delta) @as(i16, self.height) + 2 * delta else 0)),
         };
     }
 
@@ -208,23 +208,23 @@ pub const Color = extern struct {
     }
 
     fn clamp_to_u8(v: f32) u8 {
-        return @floatToInt(u8, std.math.clamp(std.math.maxInt(u8) * v, 0.0, 255.0));
+        return @as(u8, @intFromFloat(std.math.clamp(std.math.maxInt(u8) * v, 0.0, 255.0)));
     }
 
     pub fn redf(c: Color) f32 {
-        return @intToFloat(f32, c.r) / 255.0;
+        return @as(f32, @floatFromInt(c.r)) / 255.0;
     }
 
     pub fn greenf(c: Color) f32 {
-        return @intToFloat(f32, c.g) / 255.0;
+        return @as(f32, @floatFromInt(c.g)) / 255.0;
     }
 
     pub fn bluef(c: Color) f32 {
-        return @intToFloat(f32, c.b) / 255.0;
+        return @as(f32, @floatFromInt(c.b)) / 255.0;
     }
 
     pub fn alphaf(c: Color) f32 {
-        return @intToFloat(f32, c.a) / 255.0;
+        return @as(f32, @floatFromInt(c.a)) / 255.0;
     }
 
     pub fn brightness(c: Color) u8 {
@@ -247,7 +247,7 @@ pub const Color = extern struct {
     // }
 
     pub fn alphaBlend(c0: Color, c1: Color, alpha: u8) Color {
-        return alphaBlendF(c0, c1, @intToFloat(f32, alpha) / 255.0);
+        return alphaBlendF(c0, c1, @as(f32, @floatFromInt(alpha)) / 255.0);
     }
 
     pub fn alphaBlendF(c0: Color, c1: Color, alpha: f32) Color {
@@ -261,7 +261,7 @@ pub const Color = extern struct {
     }
 
     fn lerp(a: u8, b: u8, f: f32) u8 {
-        return @floatToInt(u8, @intToFloat(f32, a) + f * (@intToFloat(f32, b) - @intToFloat(f32, a)));
+        return @as(u8, @intFromFloat(@as(f32, @floatFromInt(a)) + f * (@as(f32, @floatFromInt(b)) - @as(f32, @floatFromInt(a)))));
     }
 
     pub fn withAlpha(color: Color, alpha: u8) Color {
@@ -286,7 +286,7 @@ pub const Color = extern struct {
     fn mapFloatToInt(a: f32) !u8 {
         if (a < 0.0) return error.Overflow;
         if (a > 1.0) return error.Overflow;
-        return @floatToInt(u8, 255.0 * a);
+        return @as(u8, @intFromFloat(255.0 * a));
     }
 
     /// Parses values that are written in 3-tuples or 4-tuples separated by comma, semicolon, space and tab.
@@ -298,10 +298,10 @@ pub const Color = extern struct {
     pub fn fromValues(string: []const u8, range: ValueRange) !Color {
         var tokenizer = std.mem.tokenize(u8, string, ",; \t");
 
-        var r_str: []const u8 = tokenizer.next() orelse return error.InvalidFormat;
-        var g_str: []const u8 = tokenizer.next() orelse return error.InvalidFormat;
-        var b_str: []const u8 = tokenizer.next() orelse return error.InvalidFormat;
-        var a_str: ?[]const u8 = tokenizer.next();
+        const r_str: []const u8 = tokenizer.next() orelse return error.InvalidFormat;
+        const g_str: []const u8 = tokenizer.next() orelse return error.InvalidFormat;
+        const b_str: []const u8 = tokenizer.next() orelse return error.InvalidFormat;
+        const a_str: ?[]const u8 = tokenizer.next();
         if (tokenizer.next() != null)
             return error.InvalidFormat;
 

@@ -173,7 +173,7 @@ pub const Response = struct {
         var socket = self.buffered_writer.writer();
 
         // Print the status line, we only support HTTP/1.1 for now
-        try socket.print("HTTP/1.1 {d} {s}\r\n", .{ @enumToInt(self.status_code), self.status_code.toString() });
+        try socket.print("HTTP/1.1 {d} {s}\r\n", .{ @intFromEnum(self.status_code), self.status_code.toString() });
 
         // write headers
         var header_it = self.headers.iterator();

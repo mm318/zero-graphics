@@ -35,7 +35,7 @@ fn callChunkProcessors(processors: []ReaderProcessor, chunk_process_data: *Chunk
 
     // If noone loaded this chunk we need to skip over it
     if (!processed) {
-        try chunk_process_data.stream.seekBy(@intCast(i64, chunk_process_data.chunk_length + 4));
+        try chunk_process_data.stream.seekBy(@as(i64, @intCast(chunk_process_data.chunk_length + 4)));
     }
 }
 
@@ -72,8 +72,8 @@ const IDatChunksReader = struct {
     }
 
     fn fillBuffer(self: *Self, to_read: usize) Image.ReadError!usize {
-        std.mem.copy(u8, self.buffer[0..self.data.len], self.data);
-        var new_start = self.data.len;
+        std.mem.copyForwards(u8, self.buffer[0..self.data.len], self.data);
+        const new_start = self.data.len;
         var max = self.buffer.len;
         if (max - new_start > self.remaining_chunk_length) {
             max = new_start + self.remaining_chunk_length;
@@ -96,13 +96,13 @@ const IDatChunksReader = struct {
         if (to_read > self.data.len) {
             to_read = try self.fillBuffer(to_read);
         }
-        std.mem.copy(u8, new_dest[0..to_read], self.data[0..to_read]);
-        self.remaining_chunk_length -= @intCast(u32, to_read);
+        std.mem.copyForwards(u8, new_dest[0..to_read], self.data[0..to_read]);
+        self.remaining_chunk_length -= @as(u32, @intCast(to_read));
         self.data = self.data[to_read..];
 
         if (self.remaining_chunk_length == 0) {
             // First read and check CRC of just finished chunk
-            const expected_crc = try reader.readIntBig(u32);
+            const expected_crc = try reader.readInt(u32, .big);
             if (self.crc.final() != expected_crc) {
                 return Image.ReadError.InvalidData;
             }
@@ -148,7 +148,7 @@ pub fn loadHeader(stream: *Image.Stream) Image.ReadError!png.HeaderData {
     const header = try utils.readStructBig(struct_stream.reader(), png.HeaderData);
     if (!header.isValid()) return Image.ReadError.InvalidData;
 
-    const expected_crc = try reader.readIntBig(u32);
+    const expected_crc = try reader.readInt(u32, .big);
     var crc = Crc32.init();
     crc.update(png.Chunks.IHDR.name);
     crc.update(&header_data);
@@ -220,7 +220,7 @@ pub fn loadWithHeader(
             },
             png.Chunks.IEND.id => {
                 if (!data_found) return Image.ReadError.InvalidData;
-                _ = try reader.readIntNative(u32); // Read and ignore the crc
+                _ = try reader.readInt(u32, @import("builtin").target.cpu.arch.endian()); // Read and ignore the crc
                 try callChunkProcessors(options.processors, &chunk_process_data);
                 return result;
             },
@@ -246,10 +246,10 @@ pub fn loadWithHeader(
                         return Image.ReadError.InvalidData;
                     }
                     palette = try options.temp_allocator.alloc(color.Rgb24, palette_entries);
-                    var palette_bytes = mem.sliceAsBytes(palette);
+                    const palette_bytes = mem.sliceAsBytes(palette);
                     try reader.readNoEof(palette_bytes);
 
-                    const expected_crc = try reader.readIntBig(u32);
+                    const expected_crc = try reader.readInt(u32, .big);
                     var crc = Crc32.init();
                     crc.update(png.Chunks.PLTE.name);
                     crc.update(palette_bytes);
@@ -273,8 +273,8 @@ fn readAllData(
     options: *const ReaderOptions,
     chunk_process_data: *ChunkProcessData,
 ) Image.ReadError!PixelStorage {
-    const native_endian = comptime @import("builtin").cpu.arch.endian();
-    const is_little_endian = native_endian == .Little;
+    const native_endian = comptime @import("builtin").target.cpu.arch.endian();
+    const is_little_endian = native_endian == .little;
     const width = header.width;
     const height = header.height;
     const channel_count = header.channelCount();
@@ -282,15 +282,15 @@ fn readAllData(
     var result = try PixelStorage.init(allocator, dest_format, width * height);
     errdefer result.deinit(allocator);
     var idat_chunks_reader = IDatChunksReader.init(stream, options.processors, chunk_process_data);
-    var idat_reader: IDATReader = .{ .context = &idat_chunks_reader };
-    var decompress_stream = std.compress.zlib.zlibStream(options.temp_allocator, idat_reader) catch return Image.ReadError.InvalidData;
+    const idat_reader: IDATReader = .{ .context = &idat_chunks_reader };
+    var decompress_stream = std.compress.zlib.decompressStream(options.temp_allocator, idat_reader) catch return Image.ReadError.InvalidData;
 
     if (palette.len > 0) {
         var destination_palette = if (result.getPalette()) |result_palette|
             result_palette
         else
             try options.temp_allocator.alloc(color.Rgba32, palette.len);
-        for (palette) |entry, n| {
+        for (palette, 0..) |entry, n| {
             destination_palette[n] = color.Rgba32.initRgb(entry.r, entry.g, entry.b);
         }
         try callPaletteProcessors(options, destination_palette);
@@ -302,7 +302,7 @@ fn readAllData(
     const filter_stride = (header.bit_depth + 7) / 8 * channel_count; // 1 to 8 bytes
     const line_bytes = header.lineBytes();
     const virtual_line_bytes = line_bytes + filter_stride;
-    const result_line_bytes = @intCast(u32, destination.len / height);
+    const result_line_bytes = @as(u32, @intCast(destination.len / height));
     var tmpbytes = 2 * virtual_line_bytes;
     // For deinterlacing we also need one additional temporary row of resulting pixels
     if (header.interlace_method == .adam7) {
@@ -311,10 +311,10 @@ fn readAllData(
     var temp_allocator = if (tmpbytes < 128 * 1024) options.temp_allocator else allocator;
     var tmp_buffer = try temp_allocator.alloc(u8, tmpbytes);
     defer temp_allocator.free(tmp_buffer);
-    mem.set(u8, tmp_buffer, 0);
+    @memset(tmp_buffer, 0);
     var prev_row = tmp_buffer[0..virtual_line_bytes];
     var current_row = tmp_buffer[virtual_line_bytes .. 2 * virtual_line_bytes];
-    const pixel_stride = @intCast(u8, result_line_bytes / width);
+    const pixel_stride = @as(u8, @intCast(result_line_bytes / width));
     std.debug.assert(pixel_stride == dest_format.pixelStride());
 
     var process_row_data = RowProcessData{
@@ -389,7 +389,7 @@ fn readAllData(
             const pass_length = pass_bytes + filter_stride;
             const result_pass_line_bytes = pixel_stride * pass_width[pass];
             const deinterlace_stride = xinc[pass] * pixel_stride;
-            mem.set(u8, prev_row, 0);
+            @memset(prev_row, 0);
             const destx = start_x[pass] * pixel_stride;
             var desty = start_y[pass];
             var y: u32 = 0;
@@ -436,7 +436,7 @@ fn readAllData(
 
     // Just make sure zip stream gets to its end
     var buf: [8]u8 = undefined;
-    var shouldBeZero = decompress_stream.read(buf[0..]) catch return Image.ReadError.InvalidData;
+    const shouldBeZero = decompress_stream.read(buf[0..]) catch return Image.ReadError.InvalidData;
 
     std.debug.assert(shouldBeZero == 0);
 
@@ -452,10 +452,10 @@ fn callPaletteProcessors(options: *const ReaderOptions, palette: []color.Rgba32)
 
 fn defilter(current_row: []u8, prev_row: []u8, filter_stride: u8) Image.ReadError!void {
     const filter_byte = current_row[filter_stride - 1];
-    if (filter_byte > @enumToInt(png.FilterType.paeth)) {
+    if (filter_byte > @intFromEnum(png.FilterType.paeth)) {
         return Image.ReadError.InvalidData;
     }
-    const filter = @intToEnum(png.FilterType, filter_byte);
+    const filter = @as(png.FilterType, @enumFromInt(filter_byte));
     current_row[filter_stride - 1] = 0;
 
     var x: u32 = filter_stride;
@@ -468,14 +468,14 @@ fn defilter(current_row: []u8, prev_row: []u8, filter_stride: u8) Image.ReadErro
             current_row[x] +%= prev_row[x];
         },
         .average => while (x < current_row.len) : (x += 1) {
-            current_row[x] +%= @truncate(u8, (@intCast(u32, current_row[x - filter_stride]) + @intCast(u32, prev_row[x])) / 2);
+            current_row[x] +%= @as(u8, @truncate((@as(u32, @intCast(current_row[x - filter_stride])) + @as(u32, @intCast(prev_row[x]))) / 2));
         },
         .paeth => while (x < current_row.len) : (x += 1) {
             const a = current_row[x - filter_stride];
             const b = prev_row[x];
             const c = prev_row[x - filter_stride];
-            var pa: i32 = @intCast(i32, b) - c;
-            var pb: i32 = @intCast(i32, a) - c;
+            var pa: i32 = @as(i32, @intCast(b)) - c;
+            var pb: i32 = @as(i32, @intCast(a)) - c;
             var pc: i32 = pa + pb;
             if (pa < 0) pa = -pa;
             if (pb < 0) pb = -pb;
@@ -504,12 +504,12 @@ fn spreadRowData(
         1, 2, 4 => {
             while (dest_index < result_line_bytes) {
                 // color_type must be Grayscale or Indexed
-                var shift = @intCast(i4, 8 - bit_depth);
-                var mask = @as(u8, 0xff) << @intCast(u3, shift);
-                while (shift >= 0 and dest_index < result_line_bytes) : (shift -= @intCast(i4, bit_depth)) {
-                    dest_row[dest_index] = (current_row[source_index] & mask) >> @intCast(u3, shift);
+                var shift = @as(i4, @intCast(8 - bit_depth));
+                var mask = @as(u8, 0xff) << @as(u3, @intCast(shift));
+                while (shift >= 0 and dest_index < result_line_bytes) : (shift -= @as(i4, @intCast(bit_depth))) {
+                    dest_row[dest_index] = (current_row[source_index] & mask) >> @as(u3, @intCast(shift));
                     dest_index += pixel_stride;
-                    mask >>= @intCast(u3, bit_depth);
+                    mask >>= @as(u3, @intCast(bit_depth));
                 }
                 source_index += 1;
             }
@@ -524,7 +524,7 @@ fn spreadRowData(
             }
         },
         16 => {
-            var current_row16 = mem.bytesAsSlice(u16, current_row);
+            const current_row16 = mem.bytesAsSlice(u16, current_row);
             var dest_row16 = mem.bytesAsSlice(u16, dest_row);
             const pixel_stride16 = pixel_stride / 2;
             source_index /= 2;
@@ -612,20 +612,18 @@ pub const ReaderProcessor = struct {
         std.debug.assert(ptr_info == .Pointer); // Must be a pointer
         std.debug.assert(ptr_info.Pointer.size == .One); // Must be a single-item pointer
 
-        const alignment = ptr_info.Pointer.alignment;
-
         const gen = struct {
             fn chunkProcessor(ptr: *anyopaque, data: *ChunkProcessData) Image.ReadError!PixelFormat {
-                const self = @ptrCast(Ptr, @alignCast(alignment, ptr));
-                return @call(.{ .modifier = .always_inline }, chunkProcessorFn.?, .{ self, data });
+                const self = @as(Ptr, @ptrCast(@alignCast(ptr)));
+                return @call(.always_inline, chunkProcessorFn.?, .{ self, data });
             }
             fn paletteProcessor(ptr: *anyopaque, data: *PaletteProcessData) Image.ReadError!void {
-                const self = @ptrCast(Ptr, @alignCast(alignment, ptr));
-                return @call(.{ .modifier = .always_inline }, paletteProcessorFn.?, .{ self, data });
+                const self = @as(Ptr, @ptrCast(@alignCast(ptr)));
+                return @call(.always_inline, paletteProcessorFn.?, .{ self, data });
             }
             fn dataRowProcessor(ptr: *anyopaque, data: *RowProcessData) Image.ReadError!PixelFormat {
-                const self = @ptrCast(Ptr, @alignCast(alignment, ptr));
-                return @call(.{ .modifier = .always_inline }, dataRowProcessorFn.?, .{ self, data });
+                const self = @as(Ptr, @ptrCast(@alignCast(ptr)));
+                return @call(.always_inline, dataRowProcessorFn.?, .{ self, data });
             }
 
             const vtable = VTable{
@@ -672,7 +670,7 @@ pub const TrnsProcessor = struct {
         switch (result_format) {
             .grayscale1, .grayscale2, .grayscale4, .grayscale8, .grayscale16 => {
                 if (data.chunk_length == 2) {
-                    self.trns_data = .{ .gray = try reader.readIntBig(u16) };
+                    self.trns_data = .{ .gray = try reader.readInt(u16, .big) };
                     result_format = if (result_format == .grayscale16) .grayscale16Alpha else .grayscale8Alpha;
                 } else {
                     try data.stream.seekBy(data.chunk_length); // Skip invalid
@@ -705,7 +703,7 @@ pub const TrnsProcessor = struct {
         self.processed = true;
         switch (self.trns_data) {
             .index_alpha => |index_alpha| {
-                for (index_alpha) |alpha, i| {
+                for (index_alpha, 0..) |alpha, i| {
                     data.palette[i].a = alpha;
                 }
             },
@@ -731,7 +729,7 @@ pub const TrnsProcessor = struct {
                 switch (data.src_format) {
                     .grayscale1, .grayscale2, .grayscale4, .grayscale8 => {
                         while (pixel_pos + 1 < data.dest_row.len) : (pixel_pos += pixel_stride) {
-                            data.dest_row[pixel_pos + 1] = (data.dest_row[pixel_pos] ^ @truncate(u8, gray_alpha)) * 255;
+                            data.dest_row[pixel_pos + 1] = (data.dest_row[pixel_pos] ^ @as(u8, @truncate(gray_alpha))) * 255;
                         }
                         return .grayscale8Alpha;
                     },
@@ -813,7 +811,7 @@ pub const PlteProcessor = struct {
         if (!data.src_format.isIndex() or self.palette.len == 0) {
             return data.src_format;
         }
-        var pixel_stride: u8 = switch (data.dest_format) {
+        const pixel_stride: u8 = switch (data.dest_format) {
             .rgba32, .bgra32 => 4,
             .rgba64 => 8,
             else => return data.src_format,
@@ -950,7 +948,7 @@ test "testDefilter" {
 
 fn testFilter(filter_type: png.FilterType, current_row: []u8, prev_row: []u8, filter_stride: u8, expected: []const u8) !void {
     const expectEqualSlices = std.testing.expectEqualSlices;
-    current_row[filter_stride - 1] = @enumToInt(filter_type);
+    current_row[filter_stride - 1] = @intFromEnum(filter_type);
     try defilter(current_row, prev_row, filter_stride);
     try expectEqualSlices(u8, expected, current_row);
 }
@@ -971,7 +969,7 @@ test "spreadRowData" {
     try expectEqualSlices(u8, &[_]u8{ 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 0 }, dest_row);
     dest_row = dest_buffer[0..32];
     pixel_stride = 2;
-    std.mem.set(u8, dest_row, 0);
+    @memset(dest_row, 0);
     spreadRowData(dest_row, current_row[filter_stride..], bit_depth, channel_count, pixel_stride, false);
     try expectEqualSlices(u8, &[_]u8{ 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 0, 0 }, dest_row);
 
@@ -982,7 +980,7 @@ test "spreadRowData" {
     try expectEqualSlices(u8, &[_]u8{ 2, 2, 1, 1, 1, 3, 3, 0 }, dest_row);
     dest_row = dest_buffer[0..16];
     pixel_stride = 2;
-    std.mem.set(u8, dest_row, 0);
+    @memset(dest_row, 0);
     spreadRowData(dest_row, current_row[filter_stride..], bit_depth, channel_count, pixel_stride, false);
     try expectEqualSlices(u8, &[_]u8{ 2, 0, 2, 0, 1, 0, 1, 0, 1, 0, 3, 0, 3, 0, 0, 0 }, dest_row);
 
@@ -993,7 +991,7 @@ test "spreadRowData" {
     try expectEqualSlices(u8, &[_]u8{ 0xa, 0x5, 0x7, 0xc }, dest_row);
     dest_row = dest_buffer[0..8];
     pixel_stride = 2;
-    std.mem.set(u8, dest_row, 0);
+    @memset(dest_row, 0);
     spreadRowData(dest_row, current_row[filter_stride..], bit_depth, channel_count, pixel_stride, false);
     try expectEqualSlices(u8, &[_]u8{ 0xa, 0, 0x5, 0, 0x7, 0, 0xc, 0 }, dest_row);
 
@@ -1004,7 +1002,7 @@ test "spreadRowData" {
     try expectEqualSlices(u8, &[_]u8{ 0xa5, 0x7c }, dest_row);
     dest_row = dest_buffer[0..4];
     pixel_stride = 2;
-    std.mem.set(u8, dest_row, 0);
+    @memset(dest_row, 0);
     spreadRowData(dest_row, current_row[filter_stride..], bit_depth, channel_count, pixel_stride, false);
     try expectEqualSlices(u8, &[_]u8{ 0xa5, 0, 0x7c, 0 }, dest_row);
 
@@ -1017,7 +1015,7 @@ test "spreadRowData" {
     spreadRowData(dest_row, current_row[filter_stride..], bit_depth, channel_count, pixel_stride, false);
     try expectEqualSlices(u8, &[_]u8{ 0xa5, 0x7c, 0x39, 0xf2 }, dest_row);
     dest_row = dest_buffer[0..8];
-    std.mem.set(u8, dest_row, 0);
+    @memset(dest_row, 0);
     pixel_stride = 4;
     spreadRowData(dest_row, current_row[filter_stride..], bit_depth, channel_count, pixel_stride, false);
     try expectEqualSlices(u8, &[_]u8{ 0xa5, 0x7c, 0, 0, 0x39, 0xf2, 0, 0 }, dest_row);
@@ -1034,7 +1032,7 @@ test "spreadRowData" {
     bit_depth = 8;
     current_row = cur_buffer[1..10];
     dest_row = dest_buffer[0..8];
-    std.mem.set(u8, dest_row, 0);
+    @memset(dest_row, 0);
     filter_stride = 3;
     pixel_stride = 4;
     spreadRowData(dest_row, current_row[filter_stride..], bit_depth, channel_count, pixel_stride, false);
@@ -1045,7 +1043,7 @@ test "spreadRowData" {
     var cbuffer16 = [_]u8{ 0, 0, 0, 0, 0, 0, 0, 0, 0xa5, 0x7c, 0x39, 0xf2, 0x5b, 0x15, 0x78, 0xd1 };
     current_row = cbuffer16[0..];
     dest_row = dest_buffer[0..8];
-    std.mem.set(u8, dest_row, 0);
+    @memset(dest_row, 0);
     filter_stride = 8;
     pixel_stride = 8;
     spreadRowData(dest_row, current_row[filter_stride..], bit_depth, channel_count, pixel_stride, true);

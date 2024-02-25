@@ -73,12 +73,12 @@ fn headers(ctx: *Context, response: *http.Response, request: http.Request, captu
 fn hello(ctx: *Context, resp: *http.Response, req: http.Request, captures: ?*const anyopaque) !void {
     _ = req;
     _ = ctx;
-    const name = @ptrCast(
+    const name = @as(
         *const []const u8,
-        @alignCast(
+        @ptrCast(@alignCast(
             @alignOf(*const []const u8),
             captures,
-        ),
+        )),
     );
     try resp.writer().print("Hello {s}\n", .{name.*});
 }
@@ -95,7 +95,7 @@ fn messages(ctx: *Context, resp: *http.Response, req: http.Request, captures: ?*
     _ = ctx;
     _ = req;
     const Args = struct { post: usize, message: []const u8 };
-    const args = @ptrCast(*const Args, @alignCast(@alignOf(*const Args), captures));
+    const args = @as(*const Args, @ptrCast(@alignCast(@alignOf(*const Args), captures)));
     try resp.writer().print("Post {d}, message: '{s}'\n", .{
         args.post,
         args.message,
