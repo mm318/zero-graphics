@@ -5,11 +5,10 @@ Comes with a pixel-perfect 2D renderer and maybe some day even with a bit of a 3
 
 ![Logo](design/logo.png)
 
+
 ## Features
 
-- Multi-platform support
-  - Desktop (Linux, MacOS, Windows, ...)
-  - WebAssembly
+- WebAssembly support
 - Pixel perfect 2D rendering
   - Primitives (line, rectangle, triangle, ...)
   - Text / TTF fonts
@@ -19,18 +18,46 @@ Comes with a pixel-perfect 2D renderer and maybe some day even with a bit of a 3
 - Zig-style immediate-mode user interface
 - Proper DPI scaling support in renderer
 
+
 ## Project status
 
 ### CI
 
 The CI coverage currently looks like this:
 
-| ·              | Windows | macOS | Linux |
-| -------------- | ------- | ----- | ----- |
-| Desktop        | ✅      | ✅    | ✅    |
-| WebAssembly    | ✅      | ✅    | ✅    |
-| `zero-init`    | ✅      | ✅    | ✅    |
-| `zero-convert` | ✅      | ✅    | ✅    |
+<table>
+  <thead>
+    <tr>
+      <th rowspan="2" scope='colgroup'>Target Feature</th>
+      <th colspan="3" scope='colgroup'>Build Host Platform</th>
+    </tr>
+    <tr>
+      <th scope='col'>Windows</th>
+      <th scope='col'>macOS</th>
+      <th scope='col'>Linux</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>zero-init</td>
+      <td>❔</td>
+      <td>❔</td>
+      <td>✅</td>
+    </tr>
+    <tr>
+      <td>zero-convert</td>
+      <td>❔</td>
+      <td>❔</td>
+      <td>✅</td>
+    </tr>
+    <tr>
+      <td>WebAssembly demo</td>
+      <td>❔</td>
+      <td>❔</td>
+      <td>✅</td>
+    </tr>
+  </tbody>
+</table>
 
 Status: [![Nightly Build](https://github.com/mm318/zero-graphics/actions/workflows/nightly.yml/badge.svg)](https://github.com/mm318/zero-graphics/actions/workflows/nightly.yml)
 
@@ -46,16 +73,11 @@ Work-in-progress, but works quite well already. There is one [big project](https
 
 ### Basic Framework
 
-- [ ] Support the following platforms
-  - [x] Wasm
+- [ ] Support the following target platforms
+  - [x] WebAssembly
     - [x] Create OpenGL ES 2.0 context
     - [x] Input Mouse
     - [x] Input Keyboard
-  - [ ] Linux Desktop
-    - [x] Create OpenGL ES 2.0 context
-    - [x] Input Mouse
-    - [ ] Input Keyboard
-  - [ ] Windows Desktop (not tested, but should work via SDL2)
 - [x] Create an OpenGL ES 2.0 context
 - [x] Provide input events
   - [x] Single pointer motion (finger or mouse)
@@ -99,53 +121,25 @@ Work-in-progress, but works quite well already. There is one [big project](https
 
 ## Dependencies
 
-### Desktop
-
-- [SDL2](https://www.libsdl.org/)
-
-### Web
+### WebAssembly Target
 
 - [js glue code](www/zero-graphics.js)
 - [root page](www/application.ztt)
 
 ## Building / Running
 
-This project uses [submodules](https://git-scm.com/book/en/v2/Git-Tools-Submodules), so to get started, clone the repo with submodules recursively:
+To get started, clone the repo:
 
 ```sh-session
-[user@computer work]$ git clone https://github.com/MasterQ32/zero-graphics --recurse-submodules
+[user@computer work]$ git clone https://github.com/mm318/zero-graphics
 ```
 
-or, if you already cloned the repository:
-
-```sh-session
-[user@computer work]$ git clone https://github.com/MasterQ32/zero-graphics
-[user@computer work]$ cd zero-graphics/
-[user@computer zero-graphics]$ git submodule update --init --recursive
-```
-
-### Desktop PC
-
-Requires `SDL2` to be installed.
-
-```sh-session
-[user@computer zero-graphics]$ zig build run
-```
-
-A window should open with the application in fullscreen.
-
-The following environment variables can control how zero-graphics behaves:
-
-- `ZEROG_FULLSCREEN` is `y` for forced fullscreen or `n` for forced window mode.
-- `ZEROG_RESIZEABLE` is `y` for forced resizable window.
-- `ZEROG_DPI` is a number specifying the pixel density.
-
-### Web/Wasm version
+### WebAssembly Target
 
 Includes a teeny tiny web server for debugging.
 
 ```sh-session
-[user@computer zero-graphics]$ zig build install run-wasm
+[user@computer zero-graphics]$ zig build run-wasm
 ```
 
 Now visit http://127.0.0.1:8000/demo_application.htm to see the demo.
@@ -185,15 +179,13 @@ The functions are roughly called in this order:
 
 ![Application workflow](documentation/app_flow.svg)
 
-The separation between _application init_ and _graphics init_ is relevant for Android apps which will destroy their window when you send it into the background and will recreate it when it is selected again. This means that all GPU content will be lost then and must be restored.
-
-Your application state will not be destroyed, so the rendering can render the same data as before.
+The separation between _application init_ and _graphics init_ is so that your application state will not be destroyed, so the rendering can render the same data as before.
 
 ### Architecture
 
 `zero-graphics` follows a somewhat unusual architecture for Zig applications.
 Your applications is a _package_ that will be consumed by a `zero-graphics` host. This host is implementing the "main loop" and will invoke both `update` and `render` periodically. It will also initialize and open the window and pump events.
 
-This design allows `zero-graphics` to run on several different platforms, including most desktop PCs, Android and even web browsers via WebAssembly.
+This design allows `zero-graphics` to run on several different platforms, including WebAssembly.
 
 You can check out the [Sdk.zig](Sdk.zig) file to find out how a application is built.
