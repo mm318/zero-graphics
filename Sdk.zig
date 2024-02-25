@@ -99,6 +99,7 @@ pub fn getLibraryPackage(sdk: *Sdk) *std.Build.Module {
                 .imports = &.{ziglyph},
             }),
         };
+
         sdk.zero_graphics_pkg = sdk.builder.createModule(.{
             .root_source_file = sdkPath("/src/zero-graphics.zig"),
             .imports = &[_]std.Build.Module.Import{
@@ -108,6 +109,12 @@ pub fn getLibraryPackage(sdk: *Sdk) *std.Build.Module {
                 text_editor,
             },
         });
+        // TTF rendering library:
+        sdk.zero_graphics_pkg.?.addCSourceFile(.{
+            .file = sdkPath("/src/rendering/stb_truetype.c"),
+            .flags = &[_][]const u8{"-std=c99"},
+        });
+        sdk.zero_graphics_pkg.?.addIncludePath(sdkPath("/vendor/stb/"));
     }
 
     return sdk.zero_graphics_pkg.?;
@@ -213,13 +220,9 @@ pub const Application = struct {
         exe.root_module.addImport(app.framework_pkg.name, app.framework_pkg.module);
         exe.root_module.addImport(app.meta_pkg.name, app.meta_pkg.module);
 
-        // TTF rendering library:
-        exe.addIncludePath(sdkPath("/vendor/stb"));
-        exe.addCSourceFile(.{ .file = sdkPath("/src/rendering/stb_truetype.c"), .flags = &[_][]const u8{"-std=c99"} });
-
-        exe.addIncludePath(sdkPath("/src/scintilla"));
-
         if (features.code_editor) {
+            // exe.addIncludePath(sdkPath("/src/scintilla/"));
+
             const scintilla_header = app.sdk.builder.addTranslateC(.{
                 .source_file = sdkPath("/src/scintilla/code_editor.h"),
                 .target = exe.root_module.resolved_target.?,
