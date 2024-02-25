@@ -365,15 +365,15 @@ const sources = struct {
     };
 
     const libraries = struct {
-        const unzip = [_][]const u8{
+        pub const unzip = [_][]const u8{
             assimpPath("/contrib/unzip/unzip.c").path,
             assimpPath("/contrib/unzip/ioapi.c").path,
             assimpPath("/contrib/unzip/crypt.c").path,
         };
-        const zip = [_][]const u8{
+        pub const zip = [_][]const u8{
             assimpPath("/contrib/zip/src/zip.c").path,
         };
-        const zlib = [_][]const u8{
+        pub const zlib = [_][]const u8{
             assimpPath("/contrib/zlib/inflate.c").path,
             assimpPath("/contrib/zlib/infback.c").path,
             assimpPath("/contrib/zlib/gzclose.c").path,
@@ -406,17 +406,17 @@ const sources = struct {
             assimpPath("/contrib/zlib/crc32.c").path,
             assimpPath("/contrib/zlib/adler32.c").path,
         };
-        const poly2tri = [_][]const u8{
+        pub const poly2tri = [_][]const u8{
             assimpPath("/contrib/poly2tri/poly2tri/common/shapes.cc").path,
             assimpPath("/contrib/poly2tri/poly2tri/sweep/sweep_context.cc").path,
             assimpPath("/contrib/poly2tri/poly2tri/sweep/advancing_front.cc").path,
             assimpPath("/contrib/poly2tri/poly2tri/sweep/cdt.cc").path,
             assimpPath("/contrib/poly2tri/poly2tri/sweep/sweep.cc").path,
         };
-        const clipper = [_][]const u8{
+        pub const clipper = [_][]const u8{
             assimpPath("/contrib/clipper/clipper.cpp").path,
         };
-        const openddlparser = [_][]const u8{
+        pub const openddlparser = [_][]const u8{
             assimpPath("/contrib/openddlparser/code/OpenDDLParser.cpp").path,
             assimpPath("/contrib/openddlparser/code/OpenDDLExport.cpp").path,
             assimpPath("/contrib/openddlparser/code/DDLNode.cpp").path,

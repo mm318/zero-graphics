@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - uses: goto-bus-stop/setup-zig@v2
         with:
@@ -23,5 +23,11 @@ jobs:
       - name: Run zig fmt check
         run: zig fmt --check .
 
-      - name: Run debug build
+      - name: Build zero-init, zero-convert, and demo_application (debug build)
+        run: zig build
+
+      - name: Setup demo_application web application
         run: zig build build-wasm
+
+      # - name: Host demo_application web application
+      #   run: zig build run-wasm

@@ -132,7 +132,7 @@ pub fn main() !u8 {
             }
         },
         else => {
-            try stderr.print("{s} conversion is not implemented yet!\n", .{std.meta.tagName(cli.verb.?)});
+            try stderr.print("{s} conversion is not implemented yet!\n", .{@tagName(cli.verb.?)});
             return 1;
         },
     }
@@ -215,7 +215,7 @@ const MeshStream = struct {
 
         stream.target_buffer.resize(stream.fileSize()) catch |err| return stream.setError(err);
 
-        std.mem.set(u8, stream.target_buffer.items, 0x55); // set to "undefined"
+        @memset(stream.target_buffer.items, 0x55); // set to "undefined"
 
         const header = @as(*align(1) z3d.static_model.Header, @ptrCast(&stream.target_buffer.items[0]));
         header.* = z3d.static_model.Header{
@@ -279,11 +279,7 @@ const MeshStream = struct {
         };
 
         if (texture_file) |file_name| {
-            std.mem.copy(
-                u8,
-                &meshes[stream.mesh_offset].texture_file,
-                file_name,
-            );
+            std.mem.copyForwards(u8, &meshes[stream.mesh_offset].texture_file, file_name);
         }
 
         stream.mesh_offset += 1;
