@@ -71,26 +71,28 @@ pub fn getDisplayDPI() f32 {
     return 96.0;
 }
 
-pub const std_options = struct {
-    /// Overwrite default log handler
-    pub fn logFn(
-        comptime message_level: std.log.Level,
-        comptime scope: @Type(.EnumLiteral),
-        comptime format: []const u8,
-        args: anytype,
-    ) void {
-        const level_txt = switch (message_level) {
-            .err => "error",
-            .warn => "warning",
-            .info => "info",
-            .debug => "debug",
-        };
-        const prefix2 = if (scope == .default) ": " else "(" ++ @tagName(scope) ++ "): ";
+pub fn logFn(
+    comptime message_level: std.log.Level,
+    comptime scope: @Type(.EnumLiteral),
+    comptime format: []const u8,
+    args: anytype,
+) void {
+    const level_txt = switch (message_level) {
+        .err => "error",
+        .warn => "warning",
+        .info => "info",
+        .debug => "debug",
+    };
+    const prefix2 = if (scope == .default) ": " else "(" ++ @tagName(scope) ++ "): ";
 
-        (LogWriter{ .context = {} }).print(level_txt ++ prefix2 ++ format ++ "\n", args) catch return;
+    (LogWriter{ .context = {} }).print(level_txt ++ prefix2 ++ format ++ "\n", args) catch return;
 
-        wasm_log_flush();
-    }
+    wasm_log_flush();
+}
+
+pub const std_options: std.Options = .{
+    // Overwrite default log handler
+    .logFn = logFn,
 };
 
 /// Overwrite default panic handler

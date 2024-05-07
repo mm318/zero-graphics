@@ -197,7 +197,7 @@ const MeshStream = struct {
     }
 
     fn writeStaticHeader(mesh_stream: ?*api.MeshStream, vertices: usize, indices: usize, ranges: usize) callconv(.C) void {
-        const stream = @fieldParentPtr(MeshStream, "mesh_stream", mesh_stream.?);
+        const stream: *MeshStream = @fieldParentPtr("mesh_stream", mesh_stream.?);
         if (stream.failed != null)
             return;
 
@@ -229,7 +229,7 @@ const MeshStream = struct {
     }
 
     fn writeVertex(mesh_stream: ?*api.MeshStream, x: f32, y: f32, z: f32, nx: f32, ny: f32, nz: f32, u: f32, v: f32) callconv(.C) void {
-        const stream = @fieldParentPtr(MeshStream, "mesh_stream", mesh_stream.?);
+        const stream: *MeshStream = @fieldParentPtr("mesh_stream", mesh_stream.?);
         if (stream.failed != null)
             return;
 
@@ -250,7 +250,7 @@ const MeshStream = struct {
     }
 
     fn writeFace(mesh_stream: ?*api.MeshStream, index0: u16, index1: u16, index2: u16) callconv(.C) void {
-        const stream = @fieldParentPtr(MeshStream, "mesh_stream", mesh_stream.?);
+        const stream: *MeshStream = @fieldParentPtr("mesh_stream", mesh_stream.?);
         if (stream.failed != null)
             return;
 
@@ -263,7 +263,7 @@ const MeshStream = struct {
     }
 
     fn writeMeshRange(mesh_stream: ?*api.MeshStream, offset: usize, length: usize, texture: ?[*:0]const u8) callconv(.C) void {
-        const stream = @fieldParentPtr(MeshStream, "mesh_stream", mesh_stream.?);
+        const stream: *MeshStream = @fieldParentPtr("mesh_stream", mesh_stream.?);
         if (stream.failed != null)
             return;
 

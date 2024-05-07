@@ -607,12 +607,12 @@ const EditorData = struct {
     gizmos: [4]*zero_graphics.Editor.Gizmo = undefined,
 
     pub fn init(self: *EditorData) !void {
-        const app = @fieldParentPtr(Application, "editor_data", self);
+        const app: *Application = @alignCast(@fieldParentPtr("editor_data", self));
         _ = app;
     }
 
     pub fn update(self: *EditorData) !void {
-        const app = @fieldParentPtr(Application, "editor_data", self);
+        const app: *Application = @alignCast(@fieldParentPtr("editor_data", self));
         if (!self.is_visible) {
             return;
         }
@@ -625,7 +625,7 @@ const EditorData = struct {
     }
 
     pub fn render(self: *EditorData) !void {
-        const app = @fieldParentPtr(Application, "editor_data", self);
+        const app: *Application = @alignCast(@fieldParentPtr("editor_data", self));
         if (!self.is_visible) {
             return;
         }

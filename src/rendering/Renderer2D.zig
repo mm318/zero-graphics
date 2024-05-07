@@ -209,7 +209,7 @@ pub fn destroyFont(self: *Self, font: *const Font) void {
     // returns a immutable reference.
     const mut_font = makeFontMut(font);
     std.debug.assert(mut_font.refcount > 0);
-    const node = @fieldParentPtr(FontItem, "data", mut_font);
+    const node: *FontItem = @fieldParentPtr("data", mut_font);
     destroyFontInternal(self, node);
 }
 

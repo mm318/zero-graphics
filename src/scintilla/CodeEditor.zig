@@ -190,7 +190,7 @@ fn sendNotification(zedit: PZigEditor, notification: u32) callconv(.C) void {
 }
 
 fn getEditor(zedit: PZigEditor) *CodeEditor {
-    return @fieldParentPtr(CodeEditor, "interface", zedit);
+    return @fieldParentPtr("interface", zedit);
 }
 
 fn getFont(font: ?*c.ZigFont) *const zero_graphics.Renderer2D.Font {

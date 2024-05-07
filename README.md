@@ -123,6 +123,7 @@ Work-in-progress, but works quite well already. There is one [big project](https
 
 ### WebAssembly Target
 
+- [zig 0.12.0](https://ziglang.org/download/)
 - [js glue code](www/zero-graphics.js)
 - [root page](www/application.ztt)
 

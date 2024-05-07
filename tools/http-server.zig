@@ -146,7 +146,7 @@ pub fn main() !void {
     defer std.process.argsFree(allocator, args);
     if (args.len != 2) {
         std.log.err("Missing argument: Application name!", .{});
-        std.os.exit(1);
+        std.process.exit(1);
     }
     const application_name = args[1];
 
@@ -168,6 +168,6 @@ pub fn main() !void {
         if (@errorReturnTrace()) |trace| {
             std.debug.dumpStackTrace(trace.*);
         }
-        std.os.exit(1);
+        std.process.exit(1);
     };
 }

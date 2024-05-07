@@ -1,19 +1,19 @@
 // Implement PNG image format according to W3C Portable Network Graphics (PNG) specification second edition (ISO/IEC 15948:2003 (E))
 // Last version: https://www.w3.org/TR/PNG/
 
-const std = @import("std");
-const types = @import("png/types.zig");
-const reader = @import("png/reader.zig");
+const Allocator = std.mem.Allocator;
 const chunk_writer = @import("png/chunk_writer.zig");
-const filter = @import("png/filtering.zig");
 const color = @import("../color.zig");
-const PixelFormat = @import("../pixel_format.zig").PixelFormat;
-const ZlibCompressor = @import("png/zlib_compressor.zig").ZlibCompressor;
+const filter = @import("png/filtering.zig");
+const FormatInterface = @import("../FormatInterface.zig");
 const Image = @import("../Image.zig");
-const FormatInterface = @import("../format_interface.zig").FormatInterface;
 const ImageReadError = Image.ReadError;
 const ImageWriteError = Image.WriteError;
-const Allocator = std.mem.Allocator;
+const PixelFormat = @import("../pixel_format.zig").PixelFormat;
+const reader = @import("png/reader.zig");
+const std = @import("std");
+const types = @import("png/types.zig");
+const ZlibCompressor = @import("png/zlib_compressor.zig").ZlibCompressor;
 
 pub const HeaderData = types.HeaderData;
 pub const ColorType = types.ColorType;
@@ -35,7 +35,6 @@ pub const PlteProcessor = reader.PlteProcessor;
 pub const ReaderOptions = reader.ReaderOptions;
 pub const DefaultProcessors = reader.DefaultProcessors;
 pub const DefaultOptions = reader.DefaultOptions;
-pub const required_temp_bytes = reader.required_temp_bytes;
 
 pub const PNG = struct {
     const Self = @This();
@@ -73,14 +72,14 @@ pub const PNG = struct {
         return load(stream, allocator, default_options.get());
     }
 
-    pub fn writeImage(allocator: Allocator, write_stream: *Image.Stream, image: Image, encoder_options: Image.EncoderOptions) ImageWriteError!void {
+    pub fn writeImage(_: Allocator, write_stream: *Image.Stream, image: Image, encoder_options: Image.EncoderOptions) ImageWriteError!void {
         const options = encoder_options.png;
 
         try ensureWritable(image);
 
         const header = HeaderData{
-            .width = @as(u32, @truncate(image.width)),
-            .height = @as(u32, @truncate(image.height)),
+            .width = @truncate(image.width),
+            .height = @truncate(image.height),
             .bit_depth = image.pixelFormat().bitsPerChannel(),
             .color_type = try types.ColorType.fromPixelFormat(image.pixelFormat()),
             .compression_method = .deflate,
@@ -90,10 +89,10 @@ pub const PNG = struct {
 
         std.debug.assert(header.isValid());
 
-        try write(allocator, write_stream, image.pixels, header, options.filter_choice);
+        try write(write_stream, image.pixels, header, options.filter_choice);
     }
 
-    pub fn write(allocator: Allocator, write_stream: *Image.Stream, pixels: color.PixelStorage, header: HeaderData, filter_choice: filter.FilterChoice) ImageWriteError!void {
+    pub fn write(write_stream: *Image.Stream, pixels: color.PixelStorage, header: HeaderData, filter_choice: filter.FilterChoice) ImageWriteError!void {
         if (header.interlace_method != .none)
             return ImageWriteError.Unsupported;
         if (header.compression_method != .deflate)
@@ -105,11 +104,11 @@ pub const PNG = struct {
 
         try writeSignature(writer);
         try writeHeader(writer, header);
-        if (PixelFormat.isIndex(pixels)) {
+        if (PixelFormat.isIndexed(pixels)) {
             try writePalette(writer, pixels);
             try writeTransparencyInfo(writer, pixels); // TODO: pixel format where there is no transparency
         }
-        try writeData(allocator, writer, pixels, header, filter_choice);
+        try writeData(writer, pixels, header, filter_choice);
         try writeTrailer(writer);
     }
 
@@ -151,14 +150,14 @@ pub const PNG = struct {
     }
 
     // IDAT (multiple maybe)
-    fn writeData(allocator: Allocator, writer: anytype, pixels: color.PixelStorage, header: HeaderData, filter_choice: filter.FilterChoice) ImageWriteError!void {
+    fn writeData(writer: anytype, pixels: color.PixelStorage, header: HeaderData, filter_choice: filter.FilterChoice) ImageWriteError!void {
         // Note: there may be more than 1 chunk
         // TODO: provide choice of how much it buffers (how much data per idat chunk)
         var chunks = chunk_writer.chunkWriter(writer, "IDAT");
         const chunk_wr = chunks.writer();
 
         var zlib: ZlibCompressor(@TypeOf(chunk_wr)) = undefined;
-        try zlib.init(allocator, chunk_wr);
+        try zlib.init(chunk_wr);
 
         try zlib.begin();
         try filter.filter(zlib.writer(), pixels, filter_choice, header);

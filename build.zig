@@ -33,7 +33,7 @@ pub fn build(b: *std.Build) !void {
     {
         const converter_api = b.addTranslateC(.{
             .target = target,
-            .source_file = .{ .path = "tools/zero-convert/api.h" },
+            .root_source_file = .{ .path = "tools/zero-convert/api.h" },
             .optimize = mode,
         });
         const api_module = b.createModule(.{ .root_source_file = converter_api.getOutput() });

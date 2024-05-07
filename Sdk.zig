@@ -221,7 +221,7 @@ pub const Application = struct {
             // exe.addIncludePath(sdkPath("/src/scintilla/"));
 
             const scintilla_header = app.sdk.builder.addTranslateC(.{
-                .source_file = sdkPath("/src/scintilla/code_editor.h"),
+                .root_source_file = sdkPath("/src/scintilla/code_editor.h"),
                 .target = exe.root_module.resolved_target.?,
                 .optimize = exe.root_module.optimize.?,
             });
@@ -413,7 +413,7 @@ const CreateAppMetaStep = struct {
 
     fn make(step: *std.Build.Step, prog_node: *std.Progress.Node) anyerror!void {
         _ = prog_node;
-        const self = @fieldParentPtr(CreateAppMetaStep, "step", step);
+        const self: *CreateAppMetaStep = @fieldParentPtr("step", step);
 
         var cache = CacheBuilder.init(self.app.sdk.builder, "zero-graphics");
 
