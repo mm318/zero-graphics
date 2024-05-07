@@ -9,7 +9,7 @@ fn QueryExtension(comptime query: []const []const u8) type {
     var fields: [query.len]std.builtin.Type.StructField = undefined;
     for (&fields, 0..) |*fld, i| {
         fld.* = std.builtin.Type.StructField{
-            .name = query[i],
+            .name = query[i] ++ "",
             .type = bool,
             .default_value = &false,
             .is_comptime = false,
@@ -18,7 +18,7 @@ fn QueryExtension(comptime query: []const []const u8) type {
     }
     return @Type(.{
         .Struct = std.builtin.Type.Struct{
-            .layout = .Auto,
+            .layout = .auto,
             .fields = &fields,
             .decls = &[_]std.builtin.Type.Declaration{},
             .is_tuple = false,
@@ -167,7 +167,8 @@ pub fn attributes(comptime list: anytype) []const Attribute {
             };
         }
     }
-    return &items;
+    const final_items = items;
+    return &final_items;
 }
 
 /// - `attributes`: A tuple of name-index values for the different vertex attributes

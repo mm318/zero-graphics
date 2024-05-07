@@ -6,26 +6,21 @@ const server_addr = "127.0.0.1";
 const server_port = 8000;
 
 // Run the server and handle incoming requests.
-fn runServer(server: *http.Server, allocator: std.mem.Allocator) !void {
+fn runServer(http_server: *std.net.Server, allocator: std.mem.Allocator) !void {
     const dir = try std.fs.cwd().openDir(".", .{});
 
-    outer: while (true) {
-        // Accept incoming connection.
-        var response = try server.accept(.{
-            .allocator = allocator,
-        });
-        defer response.deinit();
+    var read_buffer: [8000]u8 = undefined;
+    accept: while (true) {
+        const connection = try http_server.accept();
+        defer connection.stream.close();
 
-        while (response.reset() != .closing) {
-            // Handle errors during request processing.
-            response.wait() catch |err| switch (err) {
-                error.HttpHeadersInvalid => continue :outer,
-                error.EndOfStream => continue,
-                else => return err,
+        var server = std.http.Server.init(connection, &read_buffer);
+        while (server.state == .ready) {
+            var request = server.receiveHead() catch |err| {
+                std.debug.print("error: {s}\n", .{@errorName(err)});
+                continue :accept;
             };
-
-            // Process the request.
-            try handleRequest(dir, &response, allocator);
+            try handleRequest(&request, dir, allocator);
         }
     }
 }
@@ -91,20 +86,16 @@ pub fn file_extension_to_mime_type(file_ext: []const u8) []const u8 {
 }
 
 // Handle an individual request.
-fn handleRequest(dir: std.fs.Dir, response: *http.Server.Response, allocator: std.mem.Allocator) !void {
+fn handleRequest(request: *http.Server.Request, dir: std.fs.Dir, allocator: std.mem.Allocator) !void {
     // Log the request details.
-    log.info("{s} {s} {s}", .{ @tagName(response.request.method), @tagName(response.request.version), response.request.target });
+    log.info("{s} {s} {s}", .{ @tagName(request.head.method), @tagName(request.head.version), request.head.target });
 
     // Read the request body.
-    const body = try response.reader().readAllAlloc(allocator, 8192);
-    defer allocator.free(body);
+    const request_reader = try request.reader();
+    const request_body = try request_reader.readAllAlloc(allocator, 8192);
+    defer allocator.free(request_body);
 
-    // Set "connection" header to "keep-alive" if present in request headers.
-    if (response.request.headers.contains("connection")) {
-        try response.headers.append("connection", "keep-alive");
-    }
-
-    const file = dir.openFile(response.request.target[1..], .{});
+    const file = dir.openFile(request.head.target[1..], .{});
     if (file) |f| {
         defer f.close();
 
@@ -114,25 +105,21 @@ fn handleRequest(dir: std.fs.Dir, response: *http.Server.Response, allocator: st
         const content = try f.readToEndAllocOptions(allocator, 16777216, file_size, @alignOf(u8), null);
         defer allocator.free(content);
 
-        response.transfer_encoding = .{ .content_length = content.len };
-
-        const idx = std.mem.lastIndexOfScalar(u8, response.request.target, '.') orelse 0;
-        const mime_type = file_extension_to_mime_type(response.request.target[idx..]);
-        try response.headers.append("content-type", mime_type);
+        const idx = std.mem.lastIndexOfScalar(u8, request.head.target, '.') orelse 0;
+        const mime_type = file_extension_to_mime_type(request.head.target[idx..]);
 
         log.info("file size: {} bytes. file type: {s}", .{ content.len, mime_type });
 
         // Write the response body.
-        try response.send();
-        if (response.request.method != .HEAD) {
-            try response.writeAll(content);
-            try response.finish();
-        }
+        try request.respond(content, .{
+            .extra_headers = &.{
+                .{ .name = "content-type", .value = mime_type },
+            },
+        });
     } else |_| {
         // Set the response status to 404 (not found).
         log.info("file not found!", .{});
-        response.status = .not_found;
-        try response.send();
+        try request.respond(&.{}, .{ .status = .not_found });
     }
 }
 
@@ -146,20 +133,19 @@ pub fn main() !void {
     defer std.process.argsFree(allocator, args);
     if (args.len != 2) {
         std.log.err("Missing argument: Application name!", .{});
-        std.os.exit(1);
+        std.process.exit(1);
     }
     const application_name = args[1];
 
     // Initialize the server.
-    var server = http.Server.init(allocator, .{ .reuse_address = true });
-    defer server.deinit();
+    const address = std.net.Address.parseIp(server_addr, server_port) catch unreachable;
+    var server = try address.listen(.{});
 
     // Log the server address and port.
-    log.info("Application is now served at http://{s}:{d}/{s}.htm", .{ server_addr, server_port, application_name });
-
-    // Parse the server address.
-    const address = std.net.Address.parseIp(server_addr, server_port) catch unreachable;
-    try server.listen(address);
+    log.info(
+        "Application is being served at http://{s}:{d}/{s}.htm",
+        .{ server_addr, server_port, application_name },
+    );
 
     // Run the server.
     runServer(&server, allocator) catch |err| {
@@ -168,6 +154,6 @@ pub fn main() !void {
         if (@errorReturnTrace()) |trace| {
             std.debug.dumpStackTrace(trace.*);
         }
-        std.os.exit(1);
+        std.process.exit(1);
     };
 }

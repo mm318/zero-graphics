@@ -60,7 +60,12 @@ const define_name_patches = struct {
 };
 
 /// Creates a new Step.Compile that will build Assimp. `linkage`
-pub fn createLibrary(sdk: *Sdk, target: *std.Build.Step.Compile, linkage: std.Build.Step.Compile.Linkage, formats: FormatSet) *std.Build.Step.Compile {
+pub fn createLibrary(
+    sdk: *Sdk,
+    target: *std.Build.Step.Compile,
+    linkage: std.builtin.LinkMode,
+    formats: FormatSet,
+) *std.Build.Step.Compile {
     const lib = switch (linkage) {
         .static => sdk.builder.addStaticLibrary(.{
             .name = "assimp",
@@ -137,7 +142,7 @@ pub fn getIncludePaths(sdk: *Sdk) []const std.Build.LazyPath {
 
 /// Adds Assimp to the given `target`, using both `build_mode` and `target` from it.
 /// Will link dynamically or statically depending on linkage.
-pub fn addTo(sdk: *Sdk, target: *std.Build.Step.Compile, linkage: std.Build.Step.Compile.Linkage, formats: FormatSet) void {
+pub fn addTo(sdk: *Sdk, target: *std.Build.Step.Compile, linkage: std.builtin.LinkMode, formats: FormatSet) void {
     const lib = sdk.createLibrary(target, linkage, formats);
     target.linkLibrary(lib);
     for (sdk.getIncludePaths()) |path| {

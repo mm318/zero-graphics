@@ -33,8 +33,8 @@ pub fn ResourcePool(comptime Resource: type, comptime Context: type, comptime de
         }
 
         fn getNode(resource: *Resource) *Node {
-            const item = @fieldParentPtr(Item, "resource", resource);
-            const node = @fieldParentPtr(Node, "data", item);
+            const item: *Item = @fieldParentPtr("resource", resource);
+            const node: *Node = @fieldParentPtr("data", item);
             return node;
         }
 

@@ -46,7 +46,7 @@ pub fn getFileSource(self: *const Self) std.Build.LazyPath {
 
 fn make(step: *std.Build.Step, prog_node: *std.Progress.Node) anyerror!void {
     _ = prog_node;
-    const self = @fieldParentPtr(Self, "step", step);
+    const self: *Self = @fieldParentPtr("step", step);
 
     const source_file_name = self.source.getPath(self.builder);
 
