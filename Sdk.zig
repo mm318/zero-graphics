@@ -6,7 +6,7 @@ fn sdkPath(comptime suffix: []const u8) std.Build.LazyPath {
         @compileError("sdkPath requires an absolute path!");
     }
     return comptime blk: {
-        const root_dir = std.fs.path.dirname(@src().file) orelse ".";
+        const root_dir = ".";
         break :blk std.Build.LazyPath{ .path = root_dir ++ suffix };
     };
 }
@@ -14,13 +14,6 @@ fn sdkPath(comptime suffix: []const u8) std.Build.LazyPath {
 const Sdk = @This();
 
 const TemplateStep = @import("vendor/ztt/src/TemplateStep.zig");
-
-fn requiresSingleThreaded(target: std.Build.ResolvedTarget) bool {
-    if (target.result.cpu.arch == .wasm32) { // always
-        return true;
-    }
-    return false;
-}
 
 const web_folder = std.Build.InstallDir{ .custom = "www" };
 
@@ -241,7 +234,7 @@ pub const Application = struct {
     }
 
     pub fn compileForWeb(app: *Application, mode: std.builtin.OptimizeMode) *AppCompilation {
-        const target = std.Build.resolveTargetQuery(app.sdk.builder, .{ .cpu_arch = .wasm32, .os_tag = .freestanding, .abi = .musl });
+        const target = std.Build.resolveTargetQuery(app.sdk.builder, .{ .cpu_arch = .wasm32, .os_tag = .wasi });
 
         const app_pkg = std.Build.Module.Import{
             .name = "application",
@@ -257,10 +250,6 @@ pub const Application = struct {
                 .file_dialogs = app.features.file_dialogs,
             };
 
-            if (features.code_editor) {
-                features.code_editor = false;
-                logger.warn("Disabling unsupported feature 'code_editor' for web platform", .{});
-            }
             if (features.file_dialogs) {
                 features.file_dialogs = false;
                 logger.warn("Disabling unsupported feature 'file_dialogs' for web platform", .{});
@@ -305,7 +294,6 @@ pub const Application = struct {
             .target = target,
             .root_source_file = sdkPath("/src/main/wasm.zig"),
             .optimize = mode,
-            .single_threaded = requiresSingleThreaded(target),
         });
         exe.entry = .disabled;
         exe.rdynamic = true;
@@ -562,7 +550,6 @@ fn createScintilla(b: *std.Build, target: std.Build.ResolvedTarget, mode: std.bu
         .name = "scintilla",
         .target = target,
         .optimize = mode,
-        .single_threaded = requiresSingleThreaded(target),
     });
     lib.addCSourceFiles(.{ .files = &scintilla_sources, .flags = &scintilla_flags });
     lib.addIncludePath(sdkPath("/vendor/scintilla/include"));
@@ -587,8 +574,8 @@ fn createScintilla(b: *std.Build, target: std.Build.ResolvedTarget, mode: std.bu
 }
 
 const scintilla_flags = [_][]const u8{
-    "-fno-sanitize=undefined",
     "-std=c++17",
+    "-fno-sanitize=undefined",
 };
 
 const scintilla_sources = [_][]const u8{

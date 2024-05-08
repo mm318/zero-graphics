@@ -1437,3 +1437,12 @@ static int zigScanToSci(int sc) {
   }
   return 0;
 }
+
+// hacks
+extern "C" {
+
+void * __cxa_allocate_exception(size_t /*thrown_size*/) { abort(); }
+void __cxa_throw(void */*thrown_object*/, std::type_info */*tinfo*/, void (*/*dest*/)(void *)) { abort(); }
+int main() {}
+
+}

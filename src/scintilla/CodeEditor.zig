@@ -51,8 +51,8 @@ const c = struct {
 
     pub const NOTIFY_CHANGE = 1;
 
-    pub extern fn scintilla_init(...) void;
-    pub extern fn scintilla_deinit(...) void;
+    pub extern fn scintilla_init() void;
+    pub extern fn scintilla_deinit() void;
     pub extern fn scintilla_create(*ZigEditorInterface) ?*ScintillaEditor;
     pub extern fn scintilla_setText(editor: ?*ScintillaEditor, string: [*]const u8, length: usize) void;
     pub extern fn scintilla_getText(editor: ?*ScintillaEditor, allocator: ?*anyopaque) ZigString;
@@ -209,8 +209,8 @@ fn getRect(rect: c.ZigRect) Rectangle {
     return Rectangle{
         .x = @as(i16, @intFromFloat(rect.x)),
         .y = @as(i16, @intFromFloat(rect.y)),
-        .width = @as(u15, @intFromFloat(std.math.max(0, rect.width))),
-        .height = @as(u15, @intFromFloat(std.math.max(0, rect.height))),
+        .width = @as(u15, @intFromFloat(@max(0, rect.width))),
+        .height = @as(u15, @intFromFloat(@max(0, rect.height))),
     };
 }
 
@@ -373,7 +373,7 @@ fn getClipboardContent(zedit: PZigEditor, maybe_str: ?[*]u8, max_length: usize) 
     log.err("getClipboardContent({}) is not implemented yet!", .{max_length});
     const dummy = "You should implement clipboarding";
     if (maybe_str) |str| {
-        std.mem.copy(u8, str[0..max_length], dummy);
+        std.mem.copyForwards(u8, str[0..max_length], dummy);
     }
     return dummy.len;
 }
