@@ -89,13 +89,11 @@ position: Rectangle,
 notifications: NotificationSet,
 
 pub fn create(editor: *CodeEditor, renderer: *Renderer) !void {
-    editor.* = CodeEditor{
-        .interface = default_editor_impl,
-        .renderer = renderer,
-        .instance = c.scintilla_create(&editor.interface) orelse return error.OutOfMemory,
-        .position = undefined,
-        .notifications = NotificationSet{},
-    };
+    editor.interface = default_editor_impl;
+    editor.renderer = renderer;
+    editor.instance = c.scintilla_create(&editor.interface) orelse return error.OutOfMemory;
+    editor.position = undefined;
+    editor.notifications = NotificationSet{};
     editor.setPosition(Rectangle.new(Point.zero, zero_graphics.CoreApplication.get().screen_size));
 }
 

@@ -244,6 +244,7 @@ void Font::Create(const FontParameters &fp) {
   log_debug("Font::Create(%s, %.3f, %d, %d)", fp.faceName, fp.size, fp.italic, fp.weight);
   // TODO: Implement font weight
   this->fid = current_app()->createFont(current_app(), fp.faceName, fp.size);
+  log_debug("font created: fid = %x", this->fid);
 }
 
 void Font::Release() {
@@ -542,21 +543,22 @@ bool Window::HasFocus() {
   return false;
 }
 
-static std::map<Scintilla::WindowID, Scintilla::PRectangle> rects;
+// static std::map<Scintilla::WindowID, Scintilla::PRectangle> rects;
+static Scintilla::PRectangle rect;  // only support one window for now
 
 PRectangle Window::GetPosition() {
-  return rects[wid];
+  return rect;
 }
 
 void Window::SetPosition(PRectangle rc) {
-  rects[wid] = rc;
+  rect = rc;
 }
 
 void Window::SetPositionRelative(PRectangle rc, Window w) {
 }
 
 PRectangle Window::GetClientPosition() {
-  return PRectangle(0, 0, rects[wid].Width(), rects[wid].Height());
+  return PRectangle(0, 0, rect.Width(), rect.Height());
 }
 
 void Window::Show(bool show) {
@@ -744,7 +746,7 @@ struct ScintillaEditor : public Scintilla::Editor {
   }
 
   void Initialise() override {
-    wMain = reinterpret_cast<Scintilla::WindowID>(this);
+    // wMain = reinterpret_cast<Scintilla::WindowID>(this);
 
     lexState = new Scintilla::LexState(pdoc);
 
@@ -867,6 +869,7 @@ struct ScintillaEditor : public Scintilla::Editor {
   }
 
   void SetText(const char *string, size_t length) {
+    log_debug("set text %s", string);
     this->WndProc(SCI_SETREADONLY, false, 0);
     this->WndProc(SCI_CLEARALL, false, 0);
     this->WndProc(SCI_SETUNDOCOLLECTION, 0, 0);
@@ -975,6 +978,7 @@ public:
   }
 
   void NotifyChange() override {
+    log_debug("NotifyChange");
     current_app->sendNotification(current_app, NOTIFY_CHANGE);
   }
 
@@ -1438,11 +1442,17 @@ static int zigScanToSci(int sc) {
   return 0;
 }
 
-// hacks
+// hacks to support cross-compiling to wasi
 extern "C" {
 
-void * __cxa_allocate_exception(size_t /*thrown_size*/) { abort(); }
-void __cxa_throw(void */*thrown_object*/, std::type_info */*tinfo*/, void (*/*dest*/)(void *)) { abort(); }
+void * __cxa_allocate_exception(size_t /*thrown_size*/) {
+  std::terminate();
+}
+
+void __cxa_throw(void */*thrown_object*/, std::type_info */*tinfo*/, void (*/*dest*/)(void *)) {
+  std::terminate();
+}
+
 int main() {}
 
 }
