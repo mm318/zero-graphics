@@ -935,7 +935,7 @@ pub const Builder = struct {
             const display_hash = StringHash.compute(initial_code);
 
             if (info.needs_init) {
-                info.control.* = .{
+                code_editor.* = .{
                     .editor = undefined,
                     .content_hash = display_hash,
                 };

@@ -38,7 +38,7 @@ struct ZigRect {
 };
 
 struct ZigString {
-  char *ptr;
+  const char *ptr;
   size_t len;
 };
 

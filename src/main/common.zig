@@ -4,7 +4,7 @@ const builtin = @import("builtin");
 const stbttf_log = std.log.scoped(.stb_ttf);
 
 export fn zerog_renderer2d_alloc(user_data: ?*anyopaque, size: usize) ?*anyopaque {
-    stbttf_log.info("alloc {} bytes with {?}", .{ size, user_data });
+    // stbttf_log.info("alloc {} bytes with {?}", .{ size, user_data });
     const allocator = @as(*std.mem.Allocator, @ptrCast(@alignCast(user_data orelse @panic("unexpected NULl!"))));
 
     const buffer = allocator.alignedAlloc(u8, 16, size + 16) catch return null;
@@ -13,7 +13,7 @@ export fn zerog_renderer2d_alloc(user_data: ?*anyopaque, size: usize) ?*anyopaqu
 }
 
 export fn zerog_renderer2d_free(user_data: ?*anyopaque, ptr: ?*anyopaque) void {
-    stbttf_log.info("free {?} with {?}", .{ ptr, user_data });
+    // stbttf_log.info("free {?} with {?}", .{ ptr, user_data });
     const allocator = @as(*std.mem.Allocator, @ptrCast(@alignCast(user_data orelse @panic("unexpected NULl!"))));
 
     const actual_buffer = @as([*]u8, @ptrCast(ptr orelse return)) - 16;
