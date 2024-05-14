@@ -61,6 +61,7 @@ pub fn init(builder: *std.Build, target: std.Build.ResolvedTarget, mode: std.bui
         .root_source_file = sdkPath("/tools/http-server.zig"),
         .optimize = mode,
     });
+    sdk.dummy_server.linkLibC();
 
     return sdk;
 }

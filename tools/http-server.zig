@@ -5,18 +5,27 @@ const log = std.log.scoped(.server);
 const server_addr = "127.0.0.1";
 const server_port = 8000;
 
+var server: std.net.Server = undefined;
+var stop = std.atomic.Value(bool).init(false);
+
+fn handleInterrupt(signal: i32) callconv(.C) void {
+    std.log.info("caught signal {}", .{signal});
+    stop.store(true, .monotonic);
+    server.deinit();
+}
+
 // Run the server and handle incoming requests.
-fn runServer(http_server: *std.net.Server, allocator: std.mem.Allocator) !void {
+fn runServer(allocator: std.mem.Allocator) !void {
     const dir = try std.fs.cwd().openDir(".", .{});
 
     var read_buffer: [8000]u8 = undefined;
-    accept: while (true) {
-        const connection = try http_server.accept();
+    accept: while (!stop.load(.monotonic)) {
+        const connection = try server.accept();
         defer connection.stream.close();
 
-        var server = std.http.Server.init(connection, &read_buffer);
-        while (server.state == .ready) {
-            var request = server.receiveHead() catch |err| {
+        var http_server = http.Server.init(connection, &read_buffer);
+        while (!stop.load(.monotonic) and http_server.state == .ready) {
+            var request = http_server.receiveHead() catch |err| {
                 std.debug.print("error: {s}\n", .{@errorName(err)});
                 continue :accept;
             };
@@ -137,9 +146,18 @@ pub fn main() !void {
     }
     const application_name = args[1];
 
+    var block_sigset: std.c.sigset_t = undefined;
+    std.c.sigfillset(&block_sigset);
+    const act = std.c.Sigaction{
+        .handler = .{ .handler = handleInterrupt },
+        .mask = block_sigset,
+        .flags = 0,
+    };
+    _ = std.c.sigaction(std.c.SIG.INT, &act, null);
+
     // Initialize the server.
     const address = std.net.Address.parseIp(server_addr, server_port) catch unreachable;
-    var server = try address.listen(.{});
+    server = try address.listen(.{});
 
     // Log the server address and port.
     log.info(
@@ -148,7 +166,7 @@ pub fn main() !void {
     );
 
     // Run the server.
-    runServer(&server, allocator) catch |err| {
+    runServer(allocator) catch |err| {
         // Handle server errors.
         log.err("server error: {}\n", .{err});
         if (@errorReturnTrace()) |trace| {
