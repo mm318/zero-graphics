@@ -874,6 +874,8 @@ struct ScintillaEditor : public Scintilla::Editor {
     this->WndProc(SCI_CLEARALL, false, 0);
     this->WndProc(SCI_SETUNDOCOLLECTION, 0, 0);
     this->WndProc(SCI_ADDTEXT, length, (sptr_t)string);
+    this->WndProc(SCI_STARTSTYLING, 0, 0);
+    this->WndProc(SCI_SETSTYLING, length, STYLE_DEFAULT);
     this->WndProc(SCI_SETUNDOCOLLECTION, 1, 0);
     this->WndProc(SCI_SETREADONLY, bReadOnly, 0);
     this->WndProc(SCI_GOTOPOS, 0, 0);
@@ -974,11 +976,11 @@ public:
   }
 
   void ClaimSelection() override {
-    log_debug("ClaimSelection");
+    // log_debug("ClaimSelection");
   }
 
   void NotifyChange() override {
-    log_debug("NotifyChange");
+    // log_debug("NotifyChange");
     current_app->sendNotification(current_app, NOTIFY_CHANGE);
   }
 
