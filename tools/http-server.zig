@@ -6,11 +6,13 @@ const server_addr = "127.0.0.1";
 const server_port = 8000;
 
 var server: std.net.Server = undefined;
+var connection: std.net.Server.Connection = undefined;
 var stop = std.atomic.Value(bool).init(false);
 
 fn handleInterrupt(signal: i32) callconv(.C) void {
     std.log.info("caught signal {}", .{signal});
     stop.store(true, .monotonic);
+    connection.stream.close();
     server.deinit();
 }
 
@@ -20,7 +22,7 @@ fn runServer(allocator: std.mem.Allocator) !void {
 
     var read_buffer: [8000]u8 = undefined;
     accept: while (!stop.load(.monotonic)) {
-        const connection = try server.accept();
+        connection = try server.accept();
         defer connection.stream.close();
 
         var http_server = http.Server.init(connection, &read_buffer);
