@@ -5,15 +5,66 @@ const log = std.log.scoped(.server);
 const server_addr = "127.0.0.1";
 const server_port = 8000;
 
-var server: std.net.Server = undefined;
-var connection: std.net.Server.Connection = undefined;
+var server: ?std.net.Server = null;
+var server_lock: std.Thread.Mutex = .{};
+var connection: ?std.net.Server.Connection = null;
+var connection_lock: std.Thread.Mutex = .{};
 var stop = std.atomic.Value(bool).init(false);
+
+const linger = extern struct { l_onoff: i32, l_linger: i32 }; // where is this defined in std?
+const zero_linger_val = linger{ .l_onoff = 1, .l_linger = 0 };
+
+// forcibly close listening socket
+fn close_server() void {
+    server_lock.lock();
+    defer server_lock.unlock();
+
+    if (server) |*s| {
+        const result = std.c.setsockopt(
+            s.stream.handle,
+            std.posix.SOL.SOCKET,
+            std.posix.SO.LINGER,
+            &zero_linger_val,
+            @sizeOf(@TypeOf(zero_linger_val)),
+        );
+        log.info("set server no linger result: {}", .{result});
+
+        s.deinit();
+    }
+
+    server = null;
+}
+
+// close any open connection
+fn close_connection() void {
+    connection_lock.lock();
+    defer connection_lock.unlock();
+
+    if (connection) |c| {
+        const result = std.c.setsockopt(
+            c.stream.handle,
+            std.posix.SOL.SOCKET,
+            std.posix.SO.LINGER,
+            &zero_linger_val,
+            @sizeOf(@TypeOf(zero_linger_val)),
+        );
+        log.info("set connection no linger result: {}", .{result});
+
+        c.stream.close();
+    }
+
+    connection = null;
+}
 
 fn handleInterrupt(signal: i32) callconv(.C) void {
     std.log.info("caught signal {}", .{signal});
+
+    // mark loops can be exited
     stop.store(true, .monotonic);
-    connection.stream.close();
-    server.deinit();
+
+    close_connection();
+
+    close_server();
 }
 
 // Run the server and handle incoming requests.
@@ -21,15 +72,15 @@ fn runServer(allocator: std.mem.Allocator) !void {
     const dir = try std.fs.cwd().openDir(".", .{});
 
     var read_buffer: [8000]u8 = undefined;
-    accept: while (!stop.load(.monotonic)) {
-        connection = try server.accept();
-        defer connection.stream.close();
+    while (!stop.load(.monotonic)) {
+        connection = try server.?.accept();
+        defer close_connection();
 
-        var http_server = http.Server.init(connection, &read_buffer);
+        var http_server = http.Server.init(connection.?, &read_buffer);
         while (!stop.load(.monotonic) and http_server.state == .ready) {
             var request = http_server.receiveHead() catch |err| {
-                std.debug.print("error: {s}\n", .{@errorName(err)});
-                continue :accept;
+                log.err("connection error: {s}\n", .{@errorName(err)});
+                break;
             };
             try handleRequest(&request, dir, allocator);
         }
@@ -160,6 +211,7 @@ pub fn main() !void {
     // Initialize the server.
     const address = std.net.Address.parseIp(server_addr, server_port) catch unreachable;
     server = try address.listen(.{});
+    defer close_server();
 
     // Log the server address and port.
     log.info(
@@ -174,6 +226,5 @@ pub fn main() !void {
         if (@errorReturnTrace()) |trace| {
             std.debug.dumpStackTrace(trace.*);
         }
-        std.process.exit(1);
     };
 }
