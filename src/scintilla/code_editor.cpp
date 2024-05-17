@@ -28,6 +28,7 @@
 #include <StringCopy.h>
 #ifdef SCI_LEXER
 #include <LexerModule.h>
+#include "Catalogue.h"
 #endif
 #include <SplitVector.h>
 #include <Partitioning.h>
@@ -54,7 +55,6 @@
 #include <EditView.h>
 #include <Editor.h>
 #include <AutoComplete.h>
-#include <ScintillaBase.h>
 
 #include "PropSetSimple.h"
 
@@ -122,7 +122,15 @@ static void log_debug(char const *fmt, ...) {
 }
 
 #ifdef SCI_NAMESPACE
+
+namespace Scintilla {
+#ifdef SCI_LEXER
+class LexState;
+#endif
+}
+
 using namespace Scintilla;
+
 #endif
 
 template <typename T, typename Tag>
@@ -244,6 +252,7 @@ void Font::Create(const FontParameters &fp) {
   log_debug("Font::Create(%s, %.3f, %d, %d)", fp.faceName, fp.size, fp.italic, fp.weight);
   // TODO: Implement font weight
   this->fid = current_app()->createFont(current_app(), fp.faceName, fp.size);
+  log_debug("font created: fid = %x", this->fid);
 }
 
 void Font::Release() {
@@ -542,21 +551,22 @@ bool Window::HasFocus() {
   return false;
 }
 
-static std::map<Scintilla::WindowID, Scintilla::PRectangle> rects;
+// static std::map<Scintilla::WindowID, Scintilla::PRectangle> rects;
+static Scintilla::PRectangle rect;  // only support one window for now
 
 PRectangle Window::GetPosition() {
-  return rects[wid];
+  return rect;
 }
 
 void Window::SetPosition(PRectangle rc) {
-  rects[wid] = rc;
+  rect = rc;
 }
 
 void Window::SetPositionRelative(PRectangle rc, Window w) {
 }
 
 PRectangle Window::GetClientPosition() {
-  return PRectangle(0, 0, rects[wid].Width(), rects[wid].Height());
+  return PRectangle(0, 0, rect.Width(), rect.Height());
 }
 
 void Window::Show(bool show) {
@@ -683,6 +693,200 @@ public:
   const char *GetSubStyleBases();
 };
 
+LexState::LexState(Document *pdoc_) : LexInterface(pdoc_) {
+  lexCurrent = 0;
+  performingStyle = false;
+  interfaceVersion = lvOriginal;
+  lexLanguage = SCLEX_CONTAINER;
+}
+
+LexState::~LexState() {
+  if (instance) {
+    instance->Release();
+    instance = 0;
+  }
+}
+
+void LexState::SetLexerModule(const LexerModule *lex) {
+  if (lex != lexCurrent) {
+    if (instance) {
+      instance->Release();
+      instance = 0;
+    }
+    interfaceVersion = lvOriginal;
+    lexCurrent = lex;
+    if (lexCurrent) {
+      instance = lexCurrent->Create();
+      interfaceVersion = instance->Version();
+    }
+    pdoc->LexerChanged();
+  }
+}
+
+void LexState::SetLexer(uptr_t wParam) {
+  lexLanguage = wParam;
+  if (lexLanguage == SCLEX_CONTAINER) {
+    SetLexerModule(0);
+  } else {
+    const LexerModule *lex = Catalogue::Find(lexLanguage);
+    if (!lex)
+      lex = Catalogue::Find(SCLEX_NULL);
+    SetLexerModule(lex);
+  }
+}
+
+void LexState::SetLexerLanguage(const char *languageName) {
+  const LexerModule *lex = Catalogue::Find(languageName);
+  if (!lex)
+    lex = Catalogue::Find(SCLEX_NULL);
+  if (lex)
+    lexLanguage = lex->GetLanguage();
+  SetLexerModule(lex);
+}
+
+const char *LexState::DescribeWordListSets() {
+  if (instance) {
+    return instance->DescribeWordListSets();
+  } else {
+    return 0;
+  }
+}
+
+void LexState::SetWordList(int n, const char *wl) {
+  if (instance) {
+    int firstModification = instance->WordListSet(n, wl);
+    if (firstModification >= 0) {
+      pdoc->ModifiedAt(firstModification);
+    }
+  }
+}
+
+const char *LexState::GetName() const {
+  return lexCurrent ? lexCurrent->languageName : "";
+}
+
+void *LexState::PrivateCall(int operation, void *pointer) {
+  if (pdoc && instance) {
+    return instance->PrivateCall(operation, pointer);
+  } else {
+    return 0;
+  }
+}
+
+const char *LexState::PropertyNames() {
+  if (instance) {
+    return instance->PropertyNames();
+  } else {
+    return 0;
+  }
+}
+
+int LexState::PropertyType(const char *name) {
+  if (instance) {
+    return instance->PropertyType(name);
+  } else {
+    return SC_TYPE_BOOLEAN;
+  }
+}
+
+const char *LexState::DescribeProperty(const char *name) {
+  if (instance) {
+    return instance->DescribeProperty(name);
+  } else {
+    return 0;
+  }
+}
+
+void LexState::PropSet(const char *key, const char *val) {
+  props.Set(key, val);
+  if (instance) {
+    int firstModification = instance->PropertySet(key, val);
+    if (firstModification >= 0) {
+      pdoc->ModifiedAt(firstModification);
+    }
+  }
+}
+
+const char *LexState::PropGet(const char *key) const {
+  return props.Get(key);
+}
+
+int LexState::PropGetInt(const char *key, int defaultValue) const {
+  return props.GetInt(key, defaultValue);
+}
+
+int LexState::PropGetExpanded(const char *key, char *result) const {
+  return props.GetExpanded(key, result);
+}
+
+int LexState::LineEndTypesSupported() {
+  if (instance && (interfaceVersion >= lvSubStyles)) {
+    return static_cast<ILexerWithSubStyles *>(instance)->LineEndTypesSupported();
+  }
+  return 0;
+}
+
+int LexState::AllocateSubStyles(int styleBase, int numberStyles) {
+  if (instance && (interfaceVersion >= lvSubStyles)) {
+    return static_cast<ILexerWithSubStyles *>(instance)->AllocateSubStyles(styleBase, numberStyles);
+  }
+  return -1;
+}
+
+int LexState::SubStylesStart(int styleBase) {
+  if (instance && (interfaceVersion >= lvSubStyles)) {
+    return static_cast<ILexerWithSubStyles *>(instance)->SubStylesStart(styleBase);
+  }
+  return -1;
+}
+
+int LexState::SubStylesLength(int styleBase) {
+  if (instance && (interfaceVersion >= lvSubStyles)) {
+    return static_cast<ILexerWithSubStyles *>(instance)->SubStylesLength(styleBase);
+  }
+  return 0;
+}
+
+int LexState::StyleFromSubStyle(int subStyle) {
+  if (instance && (interfaceVersion >= lvSubStyles)) {
+    return static_cast<ILexerWithSubStyles *>(instance)->StyleFromSubStyle(subStyle);
+  }
+  return 0;
+}
+
+int LexState::PrimaryStyleFromStyle(int style) {
+  if (instance && (interfaceVersion >= lvSubStyles)) {
+    return static_cast<ILexerWithSubStyles *>(instance)->PrimaryStyleFromStyle(style);
+  }
+  return 0;
+}
+
+void LexState::FreeSubStyles() {
+  if (instance && (interfaceVersion >= lvSubStyles)) {
+    static_cast<ILexerWithSubStyles *>(instance)->FreeSubStyles();
+  }
+}
+
+void LexState::SetIdentifiers(int style, const char *identifiers) {
+  if (instance && (interfaceVersion >= lvSubStyles)) {
+    static_cast<ILexerWithSubStyles *>(instance)->SetIdentifiers(style, identifiers);
+  }
+}
+
+int LexState::DistanceToSecondaryStyles() {
+  if (instance && (interfaceVersion >= lvSubStyles)) {
+    return static_cast<ILexerWithSubStyles *>(instance)->DistanceToSecondaryStyles();
+  }
+  return 0;
+}
+
+const char *LexState::GetSubStyleBases() {
+  if (instance && (interfaceVersion >= lvSubStyles)) {
+    return static_cast<ILexerWithSubStyles *>(instance)->GetSubStyleBases();
+  }
+  return "";
+}
+
 static char const *const lola_keywords =
     "and "
     "break "
@@ -744,7 +948,7 @@ struct ScintillaEditor : public Scintilla::Editor {
   }
 
   void Initialise() override {
-    wMain = reinterpret_cast<Scintilla::WindowID>(this);
+    // wMain = reinterpret_cast<Scintilla::WindowID>(this);
 
     lexState = new Scintilla::LexState(pdoc);
 
@@ -867,10 +1071,13 @@ struct ScintillaEditor : public Scintilla::Editor {
   }
 
   void SetText(const char *string, size_t length) {
+    log_debug("set text %s", string);
     this->WndProc(SCI_SETREADONLY, false, 0);
     this->WndProc(SCI_CLEARALL, false, 0);
     this->WndProc(SCI_SETUNDOCOLLECTION, 0, 0);
     this->WndProc(SCI_ADDTEXT, length, (sptr_t)string);
+    this->WndProc(SCI_STARTSTYLING, 0, 0);
+    this->WndProc(SCI_SETSTYLING, length, STYLE_DEFAULT);
     this->WndProc(SCI_SETUNDOCOLLECTION, 1, 0);
     this->WndProc(SCI_SETREADONLY, bReadOnly, 0);
     this->WndProc(SCI_GOTOPOS, 0, 0);
@@ -901,8 +1108,7 @@ struct ScintillaEditor : public Scintilla::Editor {
     return ZigString{buffer, size_t(lengthDoc)};
   }
 
-  void
-  ButtonDown(Scintilla::Point pt, unsigned int curTime, bool shift, bool ctrl, bool alt) override {
+  void ButtonDown(Scintilla::Point pt, unsigned int curTime, bool shift, bool ctrl, bool alt) override {
     Scintilla::Editor::ButtonDown(pt, curTime, shift, ctrl, alt);
   }
 
@@ -922,7 +1128,6 @@ struct ScintillaEditor : public Scintilla::Editor {
     Scintilla::Editor::AddCharUTF(s, len, treatAsDBCS);
   }
 
-public:
   sptr_t DefWndProc(unsigned int iMessage, uptr_t wParam, sptr_t lParam) override {
     return 0;
   }
@@ -971,10 +1176,11 @@ public:
   }
 
   void ClaimSelection() override {
-    log_debug("ClaimSelection");
+    // log_debug("ClaimSelection");
   }
 
   void NotifyChange() override {
+    // log_debug("NotifyChange");
     current_app->sendNotification(current_app, NOTIFY_CHANGE);
   }
 
@@ -1068,12 +1274,16 @@ void scintilla_mouseMove(ScintillaEditor *editor, int x, int y) {
 
 void scintilla_mouseDown(ScintillaEditor *editor, float time, int x, int y) {
   PseudoGlobal<ZigEditorInterface *, EditorInterfaceHack> pseudo_global{editor->current_app};
-  editor->ButtonDown(Scintilla::Point(x, y), time * 1000, false, false, false);
+  std::chrono::duration<float> time_s(time);
+  std::chrono::milliseconds time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_s);
+  editor->ButtonDown(Scintilla::Point(x, y), time_ms.count(), false, false, false);
 }
 
 void scintilla_mouseUp(ScintillaEditor *editor, float time, int x, int y) {
   PseudoGlobal<ZigEditorInterface *, EditorInterfaceHack> pseudo_global{editor->current_app};
-  editor->ButtonUp(Scintilla::Point(x, y), time * 1000, false);
+  std::chrono::duration<float> time_s(time);
+  std::chrono::milliseconds time_ms = std::chrono::duration_cast<std::chrono::milliseconds>(time_s);
+  editor->ButtonUp(Scintilla::Point(x, y), time_ms.count(), false);
 }
 void scintilla_setFocus(ScintillaEditor *editor, bool focused) {
   PseudoGlobal<ZigEditorInterface *, EditorInterfaceHack> pseudo_global{editor->current_app};
@@ -1436,4 +1646,19 @@ static int zigScanToSci(int sc) {
     break;
   }
   return 0;
+}
+
+// hacks to support cross-compiling to wasi
+extern "C" {
+
+void * __cxa_allocate_exception(size_t /*thrown_size*/) {
+  std::terminate();
+}
+
+void __cxa_throw(void */*thrown_object*/, std::type_info */*tinfo*/, void (*/*dest*/)(void *)) {
+  std::terminate();
+}
+
+int main() {}
+
 }
