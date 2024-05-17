@@ -60,8 +60,9 @@ fn writeLog(_: void, msg: []const u8) WriteError!usize {
     return msg.len;
 }
 
+var startup_time: f64 = 0;
 pub fn milliTimestamp() i64 {
-    return @as(i64, @intFromFloat(now_f64()));
+    return @as(i64, @intFromFloat(now_f64() - startup_time));
 }
 
 pub fn getDisplayDPI() f32 {
@@ -113,9 +114,11 @@ pub fn loadOpenGlFunction(_: void, function: [:0]const u8) ?*const anyopaque {
 }
 
 export fn app_init() u32 {
+    startup_time = now_f64();
+
     global_arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     gpa = .{
-        .backing_allocator = global_arena.allocator(),
+        .backing_allocator = global_arena.allocator()
     };
 
     input_handler = zerog.Input.init(gpa.allocator());
