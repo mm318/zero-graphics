@@ -614,7 +614,6 @@ const scintilla_sources = [_][]const u8{
     sdkPath("/vendor/scintilla/src/PositionCache.cxx").path,
     sdkPath("/vendor/scintilla/src/RESearch.cxx").path,
     sdkPath("/vendor/scintilla/src/RunStyles.cxx").path,
-    sdkPath("/vendor/scintilla/src/ScintillaBase.cxx").path,
     sdkPath("/vendor/scintilla/src/Selection.cxx").path,
     sdkPath("/vendor/scintilla/src/Style.cxx").path,
     sdkPath("/vendor/scintilla/src/UniConversion.cxx").path,
