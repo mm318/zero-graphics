@@ -63,11 +63,9 @@ Status: [![Nightly Build](https://github.com/mm318/zero-graphics/actions/workflo
 
 ### Previews
 
-Work-in-progress, but works quite well already. There is one [big project](https://github.com/Dunstwolke/core) depending on it and is used as a _real-world application_ driver behind _Zero Graphics_.
+Work-in-progress, but works quite well already.
 
-![Preview screenshot for SDL2](documentation/screen01.png)
-
-![Preview screenshot in FireFox](https://mq32.de/public/7207fdc86224d69a7af0e8289c6b7a687c757cf8.png)
+![Preview screenshot in Chrome](documentation/screen01.png)
 
 ## Project Goals
 
@@ -174,18 +172,21 @@ info(zero_graphics): [shader compiler] [other] Shader Stats: SGPRS: 8 VGPRS: 8 C
 info(zero_graphics): [shader compiler] [other] Shader Stats: SGPRS: 16 VGPRS: 20 Code Size: 392 LDS: 0 Scratch: 0 Max Waves: 10 Spilled SGPRs: 0 Spilled VGPRs: 0 PrivMem VGPRs: 0
 ```
 
-Check out the file [`src/main.zig`](tools/zero-init/template/src/main.zig) to see your app skeleton. You can also adjust the [`build.zig`](tools/zero-init/template/build.zig) to set your project name.
+Check out the file [`src/main.zig`](tools/zero-init/template/src/main.zig) to see your app skeleton.
+You can also adjust the [`build.zig`](tools/zero-init/template/build.zig) to set your project name.
 
 The functions are roughly called in this order:
 
 ![Application workflow](documentation/app_flow.svg)
 
-The separation between _application init_ and _graphics init_ is so that your application state will not be destroyed, so the rendering can render the same data as before.
+The separation between _application init_ and _graphics init_ is so that your application state will not be destroyed,
+so the rendering can render the same data as before.
 
 ### Architecture
 
 `zero-graphics` follows a somewhat unusual architecture for Zig applications.
-Your applications is a _package_ that will be consumed by a `zero-graphics` host. This host is implementing the "main loop" and will invoke both `update` and `render` periodically. It will also initialize and open the window and pump events.
+Your applications is a _package_ that will be consumed by a `zero-graphics` host. This host is implementing the "main loop"
+and will invoke both `update` and `render` periodically. It will also initialize and open the window and pump events.
 
 This design allows `zero-graphics` to run on several different platforms, including WebAssembly.
 

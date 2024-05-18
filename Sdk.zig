@@ -30,6 +30,7 @@ pub fn init(builder: *std.Build, target: std.Build.ResolvedTarget, mode: std.bui
         .install_web_sources = builder.allocator.dupe(
             *std.Build.Step.InstallFile,
             &[_]*std.Build.Step.InstallFile{
+                builder.addInstallFileWithDir(sdkPath("/www/barebones-wasi.js"), web_folder, "barebones-wasi.js"),
                 builder.addInstallFileWithDir(sdkPath("/www/zero-graphics.js"), web_folder, "zero-graphics.js"),
             },
         ) catch @panic("out of memory"),

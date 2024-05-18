@@ -5,17 +5,18 @@ const log = std.log.scoped(.server);
 const server_addr = "127.0.0.1";
 const server_port = 8000;
 
-var server: ?std.net.Server = null;
-var server_lock: std.Thread.Mutex = .{};
-var connection: ?std.net.Server.Connection = null;
-var connection_lock: std.Thread.Mutex = .{};
-var stop = std.atomic.Value(bool).init(false);
-
 const linger = extern struct { l_onoff: i32, l_linger: i32 }; // where is this defined in std?
 const zero_linger_val = linger{ .l_onoff = 1, .l_linger = 0 };
 
+var stop = std.atomic.Value(bool).init(false);
+
+var server: ?std.net.Server = null;
+var server_lock: std.Thread.Mutex = .{};
+
 // forcibly close listening socket
-fn close_server() void {
+fn closeServer() void {
+    log.info("closing server!", .{});
+
     server_lock.lock();
     defer server_lock.unlock();
 
@@ -35,26 +36,45 @@ fn close_server() void {
     server = null;
 }
 
-// close any open connection
-fn close_connection() void {
-    connection_lock.lock();
-    defer connection_lock.unlock();
+const Connection = struct {
+    connection: ?std.net.Server.Connection = null,
+    lock: std.Thread.Mutex = .{},
 
-    if (connection) |c| {
-        const result = std.c.setsockopt(
-            c.stream.handle,
-            std.posix.SOL.SOCKET,
-            std.posix.SO.LINGER,
-            &zero_linger_val,
-            @sizeOf(@TypeOf(zero_linger_val)),
-        );
-        log.info("set connection no linger result: {}", .{result});
+    // force close any open connection
+    fn close(self: *Connection) void {
+        self.lock.lock();
+        defer self.lock.unlock();
 
-        c.stream.close();
+        if (self.connection) |c| {
+            const result = std.c.setsockopt(
+                c.stream.handle,
+                std.posix.SOL.SOCKET,
+                std.posix.SO.LINGER,
+                &zero_linger_val,
+                @sizeOf(@TypeOf(zero_linger_val)),
+            );
+            log.info("set connection no linger result: {}", .{result});
+
+            c.stream.close();
+        }
+
+        self.connection = null;
     }
+};
 
-    connection = null;
+var connections: std.ArrayList(Connection) = undefined;
+
+fn getNextConnectionIdx() !usize {
+    for (0.., connections.items) |i, c| {
+        if (c.connection == null) {
+            return i;
+        }
+    }
+    try connections.append(.{});
+    return connections.items.len - 1;
 }
+
+var workers: std.Thread.Pool = undefined;
 
 fn handleInterrupt(signal: i32) callconv(.C) void {
     std.log.info("caught signal {}", .{signal});
@@ -62,32 +82,32 @@ fn handleInterrupt(signal: i32) callconv(.C) void {
     // mark loops can be exited
     stop.store(true, .monotonic);
 
-    close_connection();
+    for (0.., connections.items) |idx, *c| {
+        log.info("closing connection {}!", .{idx});
+        c.close();
+    }
 
-    close_server();
+    closeServer();
 }
 
 // Run the server and handle incoming requests.
 fn runServer(allocator: std.mem.Allocator) !void {
     const dir = try std.fs.cwd().openDir(".", .{});
-
-    var read_buffer: [8000]u8 = undefined;
     while (!stop.load(.monotonic)) {
-        connection = try server.?.accept();
-        defer close_connection();
-
-        var http_server = http.Server.init(connection.?, &read_buffer);
-        while (!stop.load(.monotonic) and http_server.state == .ready) {
-            var request = http_server.receiveHead() catch |err| {
-                log.err("connection error: {s}\n", .{@errorName(err)});
-                break;
-            };
-            try handleRequest(&request, dir, allocator);
-        }
+        const connection = server.?.accept() catch |err| {
+            log.err("server error: {}\n", .{err});
+            continue;
+        };
+        const idx = getNextConnectionIdx() catch |err| {
+            log.err("server error: {}\n", .{err});
+            continue;
+        };
+        connections.items[idx].connection = connection;
+        try workers.spawn(handleConnection, .{ idx, dir, allocator });
     }
 }
 
-pub fn file_extension_to_mime_type(file_ext: []const u8) []const u8 {
+pub fn getMimeType(file_ext: []const u8) []const u8 {
     const eq = struct {
         pub fn eq(a: []const u8, b: []const u8) bool {
             return std.mem.eql(u8, a, b);
@@ -147,41 +167,72 @@ pub fn file_extension_to_mime_type(file_ext: []const u8) []const u8 {
         "text/plain";
 }
 
-// Handle an individual request.
-fn handleRequest(request: *http.Server.Request, dir: std.fs.Dir, allocator: std.mem.Allocator) !void {
-    // Log the request details.
-    log.info("{s} {s} {s}", .{ @tagName(request.head.method), @tagName(request.head.version), request.head.target });
+fn handleConnection(connection_idx: usize, dir: std.fs.Dir, allocator: std.mem.Allocator) void {
+    log.info("opening connection {}", .{connection_idx});
+    defer {
+        log.info("closing connection {}!", .{connection_idx});
+        connections.items[connection_idx].close();
+    }
 
-    // Read the request body.
-    const request_reader = try request.reader();
-    const request_body = try request_reader.readAllAlloc(allocator, 8192);
-    defer allocator.free(request_body);
+    var read_buffer: [8000]u8 = undefined;
+    var http_server = http.Server.init(connections.items[connection_idx].connection.?, &read_buffer);
+    while (!stop.load(.monotonic) and http_server.state == .ready) {
+        var request = http_server.receiveHead() catch |err| {
+            log.err("connection error: {s}\n", .{@errorName(err)});
+            return;
+        };
 
-    const file = dir.openFile(request.head.target[1..], .{});
-    if (file) |f| {
-        defer f.close();
+        // Log the request details.
+        log.info("{s} {s} {s}", .{ @tagName(request.head.method), @tagName(request.head.version), request.head.target });
 
-        const file_size = (try f.stat()).size;
-        log.info("estimated file size: {} bytes", .{file_size});
+        // Read the request body.
+        const request_reader = request.reader() catch |err| {
+            log.err("connection error: {}\n", .{err});
+            return;
+        };
+        const request_body = request_reader.readAllAlloc(allocator, 8192) catch |err| {
+            log.err("connection error: {}\n", .{err});
+            return;
+        };
+        defer allocator.free(request_body);
 
-        const content = try f.readToEndAllocOptions(allocator, 16777216, file_size, @alignOf(u8), null);
-        defer allocator.free(content);
+        const file = dir.openFile(request.head.target[1..], .{});
+        if (file) |f| {
+            defer f.close();
 
-        const idx = std.mem.lastIndexOfScalar(u8, request.head.target, '.') orelse 0;
-        const mime_type = file_extension_to_mime_type(request.head.target[idx..]);
+            const file_size = (f.stat() catch |err| {
+                log.err("file error: {}\n", .{err});
+                return;
+            }).size;
+            log.info("estimated file size: {} bytes", .{file_size});
 
-        log.info("file size: {} bytes. file type: {s}", .{ content.len, mime_type });
+            const content = f.readToEndAllocOptions(allocator, 16777216, file_size, @alignOf(u8), null) catch |err| {
+                log.err("file error: {}\n", .{err});
+                return;
+            };
+            defer allocator.free(content);
 
-        // Write the response body.
-        try request.respond(content, .{
-            .extra_headers = &.{
-                .{ .name = "content-type", .value = mime_type },
-            },
-        });
-    } else |_| {
-        // Set the response status to 404 (not found).
-        log.info("file not found!", .{});
-        try request.respond(&.{}, .{ .status = .not_found });
+            const idx = std.mem.lastIndexOfScalar(u8, request.head.target, '.') orelse 0;
+            const mime_type = getMimeType(request.head.target[idx..]);
+            log.info("file size: {} bytes. file type: {s}", .{ content.len, mime_type });
+
+            // Write the response body.
+            request.respond(content, .{
+                .extra_headers = &.{
+                    .{ .name = "content-type", .value = mime_type },
+                },
+            }) catch |err| {
+                log.err("connection error: {}\n", .{err});
+                return;
+            };
+        } else |_| {
+            // Set the response status to 404 (not found).
+            log.info("file not found!", .{});
+            request.respond(&.{}, .{ .status = .not_found }) catch |err| {
+                log.err("connection error: {}\n", .{err});
+                return;
+            };
+        }
     }
 }
 
@@ -199,6 +250,18 @@ pub fn main() !void {
     }
     const application_name = args[1];
 
+    connections = std.ArrayList(Connection).init(allocator);
+    defer {
+        log.info("freeing connections!", .{});
+        connections.deinit();
+    }
+
+    try workers.init(.{ .allocator = allocator, .n_jobs = 4 });
+    defer {
+        log.info("freeing workers!", .{});
+        workers.deinit();
+    }
+
     var block_sigset: std.c.sigset_t = undefined;
     std.c.sigfillset(&block_sigset);
     const act = std.c.Sigaction{
@@ -209,9 +272,9 @@ pub fn main() !void {
     _ = std.c.sigaction(std.c.SIG.INT, &act, null);
 
     // Initialize the server.
-    const address = std.net.Address.parseIp(server_addr, server_port) catch unreachable;
+    const address = try std.net.Address.parseIp(server_addr, server_port);
     server = try address.listen(.{});
-    defer close_server();
+    defer closeServer();
 
     // Log the server address and port.
     log.info(
