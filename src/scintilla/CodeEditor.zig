@@ -33,7 +33,10 @@ const c = struct {
         drawString: ?*const fn (*ZigEditorInterface, *const ZigRect, ?*ZigFont, ZigColor, [*]const u8, usize) callconv(.C) void,
         drawRectangle: ?*const fn (*ZigEditorInterface, *const ZigRect, ZigColor) callconv(.C) void,
         fillRectangle: ?*const fn (*ZigEditorInterface, *const ZigRect, ZigColor) callconv(.C) void,
+        pushClipRect: ?*const fn (*ZigEditorInterface, *const ZigRect) callconv(.C) void,
+        popClipRect: ?*const fn (*ZigEditorInterface) callconv(.C) void,
         setClipRect: ?*const fn (*ZigEditorInterface, *const ZigRect) callconv(.C) void,
+        clearClipRect: ?*const fn (*ZigEditorInterface) callconv(.C) void,
         setClipboardContent: ?*const fn (*ZigEditorInterface, [*]const u8, usize) callconv(.C) void,
         getClipboardContent: ?*const fn (*ZigEditorInterface, [*]u8, usize) callconv(.C) usize,
         sendNotification: ?*const fn (*ZigEditorInterface, notification: u32) callconv(.C) void,
@@ -170,7 +173,10 @@ const default_editor_impl = c.ZigEditorInterface{
     .drawRectangle = drawRectangle,
     .fillRectangle = fillRectangle,
     .drawString = drawString,
+    .pushClipRect = pushClipRect,
+    .popClipRect = popClipRect,
     .setClipRect = setClipRect,
+    .clearClipRect = clearClipRect,
     .setClipboardContent = setClipboardContent,
     .getClipboardContent = getClipboardContent,
     .sendNotification = sendNotification,
@@ -352,11 +358,28 @@ fn drawString(zedit: PZigEditor, rect: *const c.ZigRect, font_ptr: ?*c.ZigFont, 
     self.renderer.drawString(font, str[0..length], dst_rect.x, dst_rect.y, dst_color) catch {};
 }
 
+fn pushClipRect(zedit: PZigEditor, zrect: *const c.ZigRect) callconv(.C) void {
+    const self = getEditor(zedit);
+    const rect = getRect(zrect.*);
+    self.renderer.pushClipRectangle(rect) catch {};
+}
+
+fn popClipRect(zedit: PZigEditor) callconv(.C) void {
+    const self = getEditor(zedit);
+    self.renderer.popClipRectangle() catch {};
+}
+
+// are you sure you want to call this function instead of pushClipRectangle?
 fn setClipRect(zedit: PZigEditor, zrect: *const c.ZigRect) callconv(.C) void {
     const self = getEditor(zedit);
     const rect = getRect(zrect.*);
-
     self.renderer.setClipRectangle(rect) catch {};
+}
+
+// are you sure you want to call this function instead of popClipRectangle?
+fn clearClipRect(zedit: PZigEditor) callconv(.C) void {
+    const self = getEditor(zedit);
+    self.renderer.clearClipRectangle() catch {};
 }
 
 fn setClipboardContent(zedit: PZigEditor, str: [*]const u8, length: usize) callconv(.C) void {

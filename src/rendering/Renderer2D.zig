@@ -969,6 +969,7 @@ pub fn popClipRectangle(self: *Self) !void {
     draw_call.* = .pop_clip_rect;
 }
 
+// are you sure you want to call this function instead of pushClipRectangle?
 pub fn setClipRectangle(self: *Self, rectangle: Rectangle) !void {
     const draw_call = try self.draw_calls.addOne();
     draw_call.* = DrawCall{
@@ -976,6 +977,7 @@ pub fn setClipRectangle(self: *Self, rectangle: Rectangle) !void {
     };
 }
 
+// are you sure you want to call this function instead of popClipRectangle?
 pub fn clearClipRectangle(self: *Self) !void {
     const draw_call = try self.draw_calls.addOne();
     draw_call.* = .clear_clip_rect;

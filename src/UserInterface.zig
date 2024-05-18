@@ -1445,8 +1445,9 @@ pub fn render(self: UserInterface) !void {
             },
 
             .code_editor => |*control| {
-                if (has_code_editor)
+                if (has_code_editor) {
                     control.editor.render();
+                }
             },
 
             .label => |control| {

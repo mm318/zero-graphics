@@ -188,7 +188,7 @@ pub fn update(app: *Application) !bool {
         }
 
         if (@hasDecl(zero_graphics, "CodeEditor")) {
-            const editor = try ui.codeEditor(.{ .x = 270, .y = 130, .width = 250, .height = 116 }, "Hello World!", .{});
+            const editor = try ui.codeEditor(.{ .x = 10, .y = 250, .width = 250, .height = 350 }, "Code Editor Demo\n\nHello World!\n", .{});
             {
                 const events = editor.getNotifications();
 
@@ -285,7 +285,10 @@ pub fn update(app: *Application) !bool {
                 var mouse_in: bool = false;
                 var mouse_down: bool = false;
 
-                pub fn update(self: zero_graphics.UserInterface.CustomWidget, event: zero_graphics.UserInterface.CustomWidget.Event) ?usize {
+                pub fn update(
+                    self: zero_graphics.UserInterface.CustomWidget,
+                    event: zero_graphics.UserInterface.CustomWidget.Event,
+                ) ?usize {
                     _ = self;
                     logger.info("custom widget received event: {}", .{event});
                     switch (event) {
@@ -298,7 +301,12 @@ pub fn update(app: *Application) !bool {
                     return null;
                 }
 
-                pub fn draw(self: zero_graphics.UserInterface.CustomWidget, rectangle: zero_graphics.Rectangle, painter: *Renderer, info: zero_graphics.UserInterface.CustomWidget.DrawInfo) Renderer.DrawError!void {
+                pub fn draw(
+                    self: zero_graphics.UserInterface.CustomWidget,
+                    rectangle: zero_graphics.Rectangle,
+                    painter: *Renderer,
+                    info: zero_graphics.UserInterface.CustomWidget.DrawInfo,
+                ) Renderer.DrawError!void {
                     _ = self;
                     _ = info;
                     try painter.fillRectangle(rectangle, if (mouse_in)

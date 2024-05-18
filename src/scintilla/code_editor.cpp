@@ -942,9 +942,9 @@ struct ScintillaEditor : public Scintilla::Editor {
     clip_rect.bottom += window_pos.top;
 
     auto const temp_rect = cpp2zig(clip_rect);
-    current_app->setClipRect(current_app, &temp_rect);
-
+    current_app->pushClipRect(current_app, &temp_rect);
     this->Paint(this->surface, rect);
+    current_app->popClipRect(current_app);
   }
 
   void Initialise() override {

@@ -57,7 +57,10 @@ struct ZigEditorInterface {
   void (*drawString)(ZigEditorInterface *app, ZigRect const *rectangle, ZigFont *font, ZigColor color, char const *str, size_t length);
   void (*drawRectangle)(ZigEditorInterface *app, ZigRect const *rectangle, ZigColor color);
   void (*fillRectangle)(ZigEditorInterface *app, ZigRect const *rectangle, ZigColor color);
+  void (*pushClipRect)(ZigEditorInterface *app, ZigRect const *rectangle);
+  void (*popClipRect)(ZigEditorInterface *app);
   void (*setClipRect)(ZigEditorInterface *app, ZigRect const *rectangle);
+  void (*clearClipRect)(ZigEditorInterface *app);
 
   void (*setClipboardContent)(ZigEditorInterface *app, char const *str, size_t length);
   size_t (*getClipboardContent)(ZigEditorInterface *app, char *str, size_t max_length);
