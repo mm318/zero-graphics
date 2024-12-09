@@ -6,7 +6,7 @@ const Widget = @This();
 const InputEvent = ui.InputEvent;
 const View = ui.View;
 
-pub const List = std.TailQueue(void);
+pub const List = std.DoublyLinkedList(void);
 pub const Node = List.Node;
 
 /// An intrusive linked list node that points to the previous and next sibling in the current context.

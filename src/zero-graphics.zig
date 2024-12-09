@@ -296,7 +296,7 @@ pub const Color = extern struct {
     /// - `0.0 1.0 0.0`
     /// - `0.0; 1.0; 0.46`
     pub fn fromValues(string: []const u8, range: ValueRange) !Color {
-        var tokenizer = std.mem.tokenize(u8, string, ",; \t");
+        var tokenizer = std.mem.tokenizeAny(u8, string, ",; \t");
 
         const r_str: []const u8 = tokenizer.next() orelse return error.InvalidFormat;
         const g_str: []const u8 = tokenizer.next() orelse return error.InvalidFormat;

@@ -41,11 +41,10 @@ pub fn transformSource(builder: *std.Build, source: std.Build.LazyPath) std.Buil
 
 /// Returns the file source
 pub fn getFileSource(self: *const Self) std.Build.LazyPath {
-    return std.Build.LazyPath{ .generated = &self.output_file };
+    return .{ .generated = .{ .file = &self.output_file } };
 }
 
-fn make(step: *std.Build.Step, prog_node: *std.Progress.Node) anyerror!void {
-    _ = prog_node;
+fn make(step: *std.Build.Step, _: std.Build.Step.MakeOptions) anyerror!void {
     const self: *Self = @fieldParentPtr("step", step);
 
     const source_file_name = self.source.getPath(self.builder);
@@ -269,7 +268,7 @@ fn make(step: *std.Build.Step, prog_node: *std.Progress.Node) anyerror!void {
 
     // std.debug.print("out file = {s}\n", .{self.file_name});
 
-    dir.writeFile(output_name, output_buffer.items) catch |err| {
+    dir.writeFile(.{ .sub_path = output_name, .data = output_buffer.items }) catch |err| {
         std.debug.print("unable to write {s} into {s}: {s}\n", .{
             output_name,
             output_dir,

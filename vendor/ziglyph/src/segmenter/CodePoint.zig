@@ -36,9 +36,9 @@ pub const CodePointIterator = struct {
 
         cp.scalar = switch (cp.bytes.len) {
             1 => @as(u21, cp.bytes[0]),
-            2 => unicode.utf8Decode2(cp.bytes) catch unreachable,
-            3 => unicode.utf8Decode3(cp.bytes) catch unreachable,
-            4 => unicode.utf8Decode4(cp.bytes) catch unreachable,
+            2 => unicode.utf8Decode2(cp.bytes[0..2].*) catch unreachable,
+            3 => unicode.utf8Decode3(cp.bytes[0..3].*) catch unreachable,
+            4 => unicode.utf8Decode4(cp.bytes[0..4].*) catch unreachable,
             else => unreachable,
         };
 

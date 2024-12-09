@@ -22,8 +22,8 @@ const Rectangle = types.Rectangle;
 const Size = types.Size;
 const Point = types.Point;
 
-const FontList = std.TailQueue(Font);
-const FontItem = std.TailQueue(Font).Node;
+const FontList = std.DoublyLinkedList(Font);
+const FontItem = std.DoublyLinkedList(Font).Node;
 
 pub const DrawError = error{OutOfMemory};
 pub const CreateFontError = error{ OutOfMemory, InvalidFontFile };
@@ -504,7 +504,7 @@ pub fn drawText(self: *Self, font: *const Font, text: []const u8, target: Rectan
 
     const line_height = font.getLineHeight();
 
-    var lines_iter = std.mem.split(u8, text, "\n");
+    var lines_iter = std.mem.splitSequence(u8, text, "\n");
     while (lines_iter.next()) |line| {
         // if (options.max_height) |limit| {
         //     if (total_height + line_height > limit)
@@ -530,7 +530,7 @@ pub fn drawText(self: *Self, font: *const Font, text: []const u8, target: Rectan
 
     try self.pushClipRectangle(target);
 
-    lines_iter = std.mem.split(u8, text, "\n");
+    lines_iter = std.mem.splitSequence(u8, text, "\n");
     while (lines_iter.next()) |line| {
         try self.drawString(
             font,

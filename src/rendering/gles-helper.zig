@@ -17,7 +17,7 @@ fn QueryExtension(comptime query: []const []const u8) type {
         };
     }
     return @Type(.{
-        .Struct = std.builtin.Type.Struct{
+        .@"struct" = std.builtin.Type.Struct{
             .layout = .auto,
             .fields = &fields,
             .decls = &[_]std.builtin.Type.Declaration{},
@@ -30,7 +30,7 @@ pub fn queryExtensions(comptime query: []const []const u8) QueryExtension(query)
     var exts = std.mem.zeroes(QueryExtension(query));
     if (builtin.target.cpu.arch != .wasm32) {
         const extension_list = std.mem.span(zero_graphics.gles.getString(zero_graphics.gles.EXTENSIONS)) orelse return exts;
-        var iterator = std.mem.split(u8, extension_list, " ");
+        var iterator = std.mem.splitSequence(u8, extension_list, " ");
         while (iterator.next()) |extension| {
             inline for (std.meta.fields(QueryExtension(query))) |fld| {
                 if (std.mem.eql(u8, extension, "GL_" ++ fld.name)) {

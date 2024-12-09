@@ -17,7 +17,7 @@ test "Zigstr README tests" {
 
     // Code point iteration.
     var cp_iter = str.codePointIter();
-    var want = [_]u21{ 'H', 0x00E9, 'l', 'l', 'o' };
+    const want = [_]u21{ 'H', 0x00E9, 'l', 'l', 'o' };
 
     var i: usize = 0;
     while (cp_iter.next()) |cp| : (i += 1) {
@@ -122,7 +122,7 @@ test "Zigstr README tests" {
     try expect(tok_iter.next() == null);
 
     // Collect all tokens at once.
-    var ts = try str.tokenize(" ", allocator);
+    const ts = try str.tokenize(" ", allocator);
     defer allocator.free(ts);
     try expectEqual(@as(usize, 2), ts.len);
     try expectEqualStrings("Hello", ts[0]);
@@ -137,7 +137,7 @@ test "Zigstr README tests" {
     try expect(split_iter.next() == null);
 
     // Collect all sub-strings at once.
-    var ss = try str.split(" ", allocator);
+    const ss = try str.split(" ", allocator);
     defer allocator.free(ss);
     try expectEqual(@as(usize, 4), ss.len);
     try expectEqualStrings("", ss[0]);
@@ -151,7 +151,7 @@ test "Zigstr README tests" {
     try expectEqualStrings(iter.next().?, "Hello");
     try expectEqualStrings(iter.next().?, "World");
 
-    var lines_array = try str.lines(allocator); // array of lines without ending \n.
+    const lines_array = try str.lines(allocator); // array of lines without ending \n.
     defer allocator.free(lines_array);
     try expectEqualStrings(lines_array[0], "Hello");
     try expectEqualStrings(lines_array[1], "World");
@@ -271,7 +271,7 @@ test "Zigstr README tests" {
     try expect(gs[0].eql("\u{0065}\u{0301}"));
 
     // Substrings
-    var sub = try str.substr(1, 2);
+    const sub = try str.substr(1, 2);
     try expectEqualStrings("\u{0065}\u{0301}", sub);
 
     try expectEqualStrings(bytes, sub);

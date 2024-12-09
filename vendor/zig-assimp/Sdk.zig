@@ -2,24 +2,12 @@ const std = @import("std");
 
 const Sdk = @This();
 
-fn sdkPath(comptime suffix: []const u8) std.Build.LazyPath {
-    if (suffix[0] != '/') {
-        @compileError("relToPath requires an absolute path!");
+fn assimpPath(sdk: *Sdk, comptime suffix: []const u8) std.Build.LazyPath {
+    if (suffix.len > 0 and suffix[0] == '/') {
+        @compileError("requires an relative path!");
     }
-    return comptime blk: {
-        const root_dir = std.fs.path.dirname(@src().file) orelse ".";
-        break :blk std.Build.LazyPath{ .path = root_dir ++ suffix };
-    };
-}
-
-fn assimpPath(comptime suffix: []const u8) std.Build.LazyPath {
-    if (suffix[0] != '/') {
-        @compileError("relToPath requires an absolute path!");
-    }
-    return comptime blk: {
-        const root_dir = sdkPath("/vendor/assimp").path;
-        break :blk std.Build.LazyPath{ .path = root_dir ++ suffix };
-    };
+    const root_dir = "vendor/assimp/";
+    return sdk.builder.path(root_dir ++ suffix);
 }
 
 builder: *std.Build,
@@ -82,24 +70,24 @@ pub fn createLibrary(
     lib.linkLibC();
     lib.linkLibCpp();
 
-    for (sdk.getIncludePaths()) |path| {
-        lib.addIncludePath(path);
+    inline for (comptime Sdk.getIncludePaths()) |path| {
+        lib.addIncludePath(sdk.assimpPath(path));
     }
 
-    lib.addIncludePath(assimpPath("/"));
-    lib.addIncludePath(assimpPath("/contrib"));
-    lib.addIncludePath(assimpPath("/code"));
-    lib.addIncludePath(assimpPath("/contrib/pugixml/src/"));
-    lib.addIncludePath(assimpPath("/contrib/rapidjson/include"));
-    lib.addIncludePath(assimpPath("/contrib/unzip"));
-    lib.addIncludePath(assimpPath("/contrib/zlib"));
-    lib.addIncludePath(assimpPath("/contrib/openddlparser/include"));
+    lib.addIncludePath(sdk.assimpPath(""));
+    lib.addIncludePath(sdk.assimpPath("contrib/"));
+    lib.addIncludePath(sdk.assimpPath("code/"));
+    lib.addIncludePath(sdk.assimpPath("contrib/pugixml/src/"));
+    lib.addIncludePath(sdk.assimpPath("contrib/rapidjson/include/"));
+    lib.addIncludePath(sdk.assimpPath("contrib/unzip/"));
+    lib.addIncludePath(sdk.assimpPath("contrib/zlib/"));
+    lib.addIncludePath(sdk.assimpPath("contrib/openddlparser/include/"));
 
-    addSources(lib, &sources.common);
+    sdk.addSources(lib, &sources.common);
 
     inline for (std.meta.fields(Format)) |fld| {
         if (@field(formats, fld.name)) {
-            addSources(lib, &@field(sources, fld.name));
+            sdk.addSources(lib, &@field(sources, fld.name));
         } else {
             var name = fld.name;
             if (@hasDecl(define_name_patches, fld.name))
@@ -114,30 +102,25 @@ pub fn createLibrary(
     }
 
     inline for (comptime std.meta.declarations(sources.libraries)) |ext_lib| {
-        addSources(lib, &@field(sources.libraries, ext_lib.name));
+        sdk.addSources(lib, &@field(sources.libraries, ext_lib.name));
     }
 
     return lib;
 }
 
-fn addSources(lib: *std.Build.Step.Compile, file_list: []const []const u8) void {
-    const flags = [_][]const u8{};
-
-    for (file_list) |src| {
-        lib.addCSourceFile(.{ .file = .{ .path = src }, .flags = &flags });
+fn addSources(sdk: *Sdk, lib: *std.Build.Step.Compile, comptime file_list: []const []const u8) void {
+    inline for (comptime file_list) |src| {
+        lib.addCSourceFile(.{ .file = sdk.assimpPath(src) });
     }
 }
 
 /// Returns the include path for the Assimp library.
-pub fn getIncludePaths(sdk: *Sdk) []const std.Build.LazyPath {
-    _ = sdk;
-    const T = struct {
-        const paths = [_]std.Build.LazyPath{
-            sdkPath("/include"),
-            sdkPath("/vendor/assimp/include"),
-        };
+pub fn getIncludePaths() []const []const u8 {
+    const paths = [_][]const u8{
+        "include/",
+        "vendor/assimp/include/",
     };
-    return &T.paths;
+    return &paths;
 }
 
 /// Adds Assimp to the given `target`, using both `build_mode` and `target` from it.
@@ -145,8 +128,8 @@ pub fn getIncludePaths(sdk: *Sdk) []const std.Build.LazyPath {
 pub fn addTo(sdk: *Sdk, target: *std.Build.Step.Compile, linkage: std.builtin.LinkMode, formats: FormatSet) void {
     const lib = sdk.createLibrary(target, linkage, formats);
     target.linkLibrary(lib);
-    for (sdk.getIncludePaths()) |path| {
-        target.addIncludePath(path);
+    inline for (comptime Sdk.getIncludePaths()) |path| {
+        target.addIncludePath(sdk.assimpPath(path));
     }
 }
 
@@ -300,371 +283,371 @@ pub const FormatSet = struct {
 };
 
 const sources = struct {
-    const src_root = assimpPath("/code").path;
+    const src_root = "code/";
 
     const common = [_][]const u8{
-        src_root ++ "/CApi/AssimpCExport.cpp",
-        src_root ++ "/CApi/CInterfaceIOWrapper.cpp",
-        src_root ++ "/Common/AssertHandler.cpp",
-        src_root ++ "/Common/Assimp.cpp",
-        src_root ++ "/Common/BaseImporter.cpp",
-        src_root ++ "/Common/BaseProcess.cpp",
-        src_root ++ "/Common/Bitmap.cpp",
-        src_root ++ "/Common/CreateAnimMesh.cpp",
-        src_root ++ "/Common/DefaultIOStream.cpp",
-        src_root ++ "/Common/DefaultIOSystem.cpp",
-        src_root ++ "/Common/DefaultLogger.cpp",
-        src_root ++ "/Common/Exceptional.cpp",
-        src_root ++ "/Common/Exporter.cpp",
-        src_root ++ "/Common/Importer.cpp",
-        src_root ++ "/Common/ImporterRegistry.cpp",
-        src_root ++ "/Common/material.cpp",
-        src_root ++ "/Common/PostStepRegistry.cpp",
-        src_root ++ "/Common/RemoveComments.cpp",
-        src_root ++ "/Common/scene.cpp",
-        src_root ++ "/Common/SceneCombiner.cpp",
-        src_root ++ "/Common/ScenePreprocessor.cpp",
-        src_root ++ "/Common/SGSpatialSort.cpp",
-        src_root ++ "/Common/simd.cpp",
-        src_root ++ "/Common/SkeletonMeshBuilder.cpp",
-        src_root ++ "/Common/SpatialSort.cpp",
-        src_root ++ "/Common/StandardShapes.cpp",
-        src_root ++ "/Common/Subdivision.cpp",
-        src_root ++ "/Common/TargetAnimation.cpp",
-        src_root ++ "/Common/Version.cpp",
-        src_root ++ "/Common/VertexTriangleAdjacency.cpp",
-        src_root ++ "/Common/ZipArchiveIOSystem.cpp",
-        src_root ++ "/Material/MaterialSystem.cpp",
-        src_root ++ "/Pbrt/PbrtExporter.cpp",
-        src_root ++ "/PostProcessing/ArmaturePopulate.cpp",
-        src_root ++ "/PostProcessing/CalcTangentsProcess.cpp",
-        src_root ++ "/PostProcessing/ComputeUVMappingProcess.cpp",
-        src_root ++ "/PostProcessing/ConvertToLHProcess.cpp",
-        src_root ++ "/PostProcessing/DeboneProcess.cpp",
-        src_root ++ "/PostProcessing/DropFaceNormalsProcess.cpp",
-        src_root ++ "/PostProcessing/EmbedTexturesProcess.cpp",
-        src_root ++ "/PostProcessing/FindDegenerates.cpp",
-        src_root ++ "/PostProcessing/FindInstancesProcess.cpp",
-        src_root ++ "/PostProcessing/FindInvalidDataProcess.cpp",
-        src_root ++ "/PostProcessing/FixNormalsStep.cpp",
-        src_root ++ "/PostProcessing/GenBoundingBoxesProcess.cpp",
-        src_root ++ "/PostProcessing/GenFaceNormalsProcess.cpp",
-        src_root ++ "/PostProcessing/GenVertexNormalsProcess.cpp",
-        src_root ++ "/PostProcessing/ImproveCacheLocality.cpp",
-        src_root ++ "/PostProcessing/JoinVerticesProcess.cpp",
-        src_root ++ "/PostProcessing/LimitBoneWeightsProcess.cpp",
-        src_root ++ "/PostProcessing/MakeVerboseFormat.cpp",
-        src_root ++ "/PostProcessing/OptimizeGraph.cpp",
-        src_root ++ "/PostProcessing/OptimizeMeshes.cpp",
-        src_root ++ "/PostProcessing/PretransformVertices.cpp",
-        src_root ++ "/PostProcessing/ProcessHelper.cpp",
-        src_root ++ "/PostProcessing/RemoveRedundantMaterials.cpp",
-        src_root ++ "/PostProcessing/RemoveVCProcess.cpp",
-        src_root ++ "/PostProcessing/ScaleProcess.cpp",
-        src_root ++ "/PostProcessing/SortByPTypeProcess.cpp",
-        src_root ++ "/PostProcessing/SplitByBoneCountProcess.cpp",
-        src_root ++ "/PostProcessing/SplitLargeMeshes.cpp",
-        src_root ++ "/PostProcessing/TextureTransform.cpp",
-        src_root ++ "/PostProcessing/TriangulateProcess.cpp",
-        src_root ++ "/PostProcessing/ValidateDataStructure.cpp",
+        src_root ++ "CApi/AssimpCExport.cpp",
+        src_root ++ "CApi/CInterfaceIOWrapper.cpp",
+        src_root ++ "Common/AssertHandler.cpp",
+        src_root ++ "Common/Assimp.cpp",
+        src_root ++ "Common/BaseImporter.cpp",
+        src_root ++ "Common/BaseProcess.cpp",
+        src_root ++ "Common/Bitmap.cpp",
+        src_root ++ "Common/CreateAnimMesh.cpp",
+        src_root ++ "Common/DefaultIOStream.cpp",
+        src_root ++ "Common/DefaultIOSystem.cpp",
+        src_root ++ "Common/DefaultLogger.cpp",
+        src_root ++ "Common/Exceptional.cpp",
+        src_root ++ "Common/Exporter.cpp",
+        src_root ++ "Common/Importer.cpp",
+        src_root ++ "Common/ImporterRegistry.cpp",
+        src_root ++ "Common/material.cpp",
+        src_root ++ "Common/PostStepRegistry.cpp",
+        src_root ++ "Common/RemoveComments.cpp",
+        src_root ++ "Common/scene.cpp",
+        src_root ++ "Common/SceneCombiner.cpp",
+        src_root ++ "Common/ScenePreprocessor.cpp",
+        src_root ++ "Common/SGSpatialSort.cpp",
+        src_root ++ "Common/simd.cpp",
+        src_root ++ "Common/SkeletonMeshBuilder.cpp",
+        src_root ++ "Common/SpatialSort.cpp",
+        src_root ++ "Common/StandardShapes.cpp",
+        src_root ++ "Common/Subdivision.cpp",
+        src_root ++ "Common/TargetAnimation.cpp",
+        src_root ++ "Common/Version.cpp",
+        src_root ++ "Common/VertexTriangleAdjacency.cpp",
+        src_root ++ "Common/ZipArchiveIOSystem.cpp",
+        src_root ++ "Material/MaterialSystem.cpp",
+        src_root ++ "Pbrt/PbrtExporter.cpp",
+        src_root ++ "PostProcessing/ArmaturePopulate.cpp",
+        src_root ++ "PostProcessing/CalcTangentsProcess.cpp",
+        src_root ++ "PostProcessing/ComputeUVMappingProcess.cpp",
+        src_root ++ "PostProcessing/ConvertToLHProcess.cpp",
+        src_root ++ "PostProcessing/DeboneProcess.cpp",
+        src_root ++ "PostProcessing/DropFaceNormalsProcess.cpp",
+        src_root ++ "PostProcessing/EmbedTexturesProcess.cpp",
+        src_root ++ "PostProcessing/FindDegenerates.cpp",
+        src_root ++ "PostProcessing/FindInstancesProcess.cpp",
+        src_root ++ "PostProcessing/FindInvalidDataProcess.cpp",
+        src_root ++ "PostProcessing/FixNormalsStep.cpp",
+        src_root ++ "PostProcessing/GenBoundingBoxesProcess.cpp",
+        src_root ++ "PostProcessing/GenFaceNormalsProcess.cpp",
+        src_root ++ "PostProcessing/GenVertexNormalsProcess.cpp",
+        src_root ++ "PostProcessing/ImproveCacheLocality.cpp",
+        src_root ++ "PostProcessing/JoinVerticesProcess.cpp",
+        src_root ++ "PostProcessing/LimitBoneWeightsProcess.cpp",
+        src_root ++ "PostProcessing/MakeVerboseFormat.cpp",
+        src_root ++ "PostProcessing/OptimizeGraph.cpp",
+        src_root ++ "PostProcessing/OptimizeMeshes.cpp",
+        src_root ++ "PostProcessing/PretransformVertices.cpp",
+        src_root ++ "PostProcessing/ProcessHelper.cpp",
+        src_root ++ "PostProcessing/RemoveRedundantMaterials.cpp",
+        src_root ++ "PostProcessing/RemoveVCProcess.cpp",
+        src_root ++ "PostProcessing/ScaleProcess.cpp",
+        src_root ++ "PostProcessing/SortByPTypeProcess.cpp",
+        src_root ++ "PostProcessing/SplitByBoneCountProcess.cpp",
+        src_root ++ "PostProcessing/SplitLargeMeshes.cpp",
+        src_root ++ "PostProcessing/TextureTransform.cpp",
+        src_root ++ "PostProcessing/TriangulateProcess.cpp",
+        src_root ++ "PostProcessing/ValidateDataStructure.cpp",
     };
 
     const libraries = struct {
         pub const unzip = [_][]const u8{
-            assimpPath("/contrib/unzip/unzip.c").path,
-            assimpPath("/contrib/unzip/ioapi.c").path,
-            assimpPath("/contrib/unzip/crypt.c").path,
+            "contrib/unzip/unzip.c",
+            "contrib/unzip/ioapi.c",
+            "contrib/unzip/crypt.c",
         };
         pub const zip = [_][]const u8{
-            assimpPath("/contrib/zip/src/zip.c").path,
+            "contrib/zip/src/zip.c",
         };
         pub const zlib = [_][]const u8{
-            assimpPath("/contrib/zlib/inflate.c").path,
-            assimpPath("/contrib/zlib/infback.c").path,
-            assimpPath("/contrib/zlib/gzclose.c").path,
-            assimpPath("/contrib/zlib/gzread.c").path,
-            assimpPath("/contrib/zlib/inftrees.c").path,
-            assimpPath("/contrib/zlib/gzwrite.c").path,
-            assimpPath("/contrib/zlib/compress.c").path,
-            assimpPath("/contrib/zlib/inffast.c").path,
-            assimpPath("/contrib/zlib/uncompr.c").path,
-            assimpPath("/contrib/zlib/gzlib.c").path,
-            // assimpRoot() ++ "/contrib/zlib/contrib/testzlib/testzlib.c",
-            // assimpRoot() ++ "/contrib/zlib/contrib/inflate86/inffas86.c",
-            // assimpRoot() ++ "/contrib/zlib/contrib/masmx64/inffas8664.c",
-            // assimpRoot() ++ "/contrib/zlib/contrib/infback9/infback9.c",
-            // assimpRoot() ++ "/contrib/zlib/contrib/infback9/inftree9.c",
-            // assimpRoot() ++ "/contrib/zlib/contrib/minizip/miniunz.c",
-            // assimpRoot() ++ "/contrib/zlib/contrib/minizip/minizip.c",
-            // assimpRoot() ++ "/contrib/zlib/contrib/minizip/unzip.c",
-            // assimpRoot() ++ "/contrib/zlib/contrib/minizip/ioapi.c",
-            // assimpRoot() ++ "/contrib/zlib/contrib/minizip/mztools.c",
-            // assimpRoot() ++ "/contrib/zlib/contrib/minizip/zip.c",
-            // assimpRoot() ++ "/contrib/zlib/contrib/minizip/iowin32.c",
-            // assimpRoot() ++ "/contrib/zlib/contrib/puff/pufftest.c",
-            // assimpRoot() ++ "/contrib/zlib/contrib/puff/puff.c",
-            // assimpRoot() ++ "/contrib/zlib/contrib/blast/blast.c",
-            // assimpRoot() ++ "/contrib/zlib/contrib/untgz/untgz.c",
-            assimpPath("/contrib/zlib/trees.c").path,
-            assimpPath("/contrib/zlib/zutil.c").path,
-            assimpPath("/contrib/zlib/deflate.c").path,
-            assimpPath("/contrib/zlib/crc32.c").path,
-            assimpPath("/contrib/zlib/adler32.c").path,
+            "contrib/zlib/inflate.c",
+            "contrib/zlib/infback.c",
+            "contrib/zlib/gzclose.c",
+            "contrib/zlib/gzread.c",
+            "contrib/zlib/inftrees.c",
+            "contrib/zlib/gzwrite.c",
+            "contrib/zlib/compress.c",
+            "contrib/zlib/inffast.c",
+            "contrib/zlib/uncompr.c",
+            "contrib/zlib/gzlib.c",
+            // "contrib/zlib/contrib/testzlib/testzlib.c",
+            // "contrib/zlib/contrib/inflate86/inffas86.c",
+            // "contrib/zlib/contrib/masmx64/inffas8664.c",
+            // "contrib/zlib/contrib/infback9/infback9.c",
+            // "contrib/zlib/contrib/infback9/inftree9.c",
+            // "contrib/zlib/contrib/minizip/miniunz.c",
+            // "contrib/zlib/contrib/minizip/minizip.c",
+            // "contrib/zlib/contrib/minizip/unzip.c",
+            // "contrib/zlib/contrib/minizip/ioapi.c",
+            // "contrib/zlib/contrib/minizip/mztools.c",
+            // "contrib/zlib/contrib/minizip/zip.c",
+            // "contrib/zlib/contrib/minizip/iowin32.c",
+            // "contrib/zlib/contrib/puff/pufftest.c",
+            // "contrib/zlib/contrib/puff/puff.c",
+            // "contrib/zlib/contrib/blast/blast.c",
+            // "contrib/zlib/contrib/untgz/untgz.c",
+            "contrib/zlib/trees.c",
+            "contrib/zlib/zutil.c",
+            "contrib/zlib/deflate.c",
+            "contrib/zlib/crc32.c",
+            "contrib/zlib/adler32.c",
         };
         pub const poly2tri = [_][]const u8{
-            assimpPath("/contrib/poly2tri/poly2tri/common/shapes.cc").path,
-            assimpPath("/contrib/poly2tri/poly2tri/sweep/sweep_context.cc").path,
-            assimpPath("/contrib/poly2tri/poly2tri/sweep/advancing_front.cc").path,
-            assimpPath("/contrib/poly2tri/poly2tri/sweep/cdt.cc").path,
-            assimpPath("/contrib/poly2tri/poly2tri/sweep/sweep.cc").path,
+            "contrib/poly2tri/poly2tri/common/shapes.cc",
+            "contrib/poly2tri/poly2tri/sweep/sweep_context.cc",
+            "contrib/poly2tri/poly2tri/sweep/advancing_front.cc",
+            "contrib/poly2tri/poly2tri/sweep/cdt.cc",
+            "contrib/poly2tri/poly2tri/sweep/sweep.cc",
         };
         pub const clipper = [_][]const u8{
-            assimpPath("/contrib/clipper/clipper.cpp").path,
+            "contrib/clipper/clipper.cpp",
         };
         pub const openddlparser = [_][]const u8{
-            assimpPath("/contrib/openddlparser/code/OpenDDLParser.cpp").path,
-            assimpPath("/contrib/openddlparser/code/OpenDDLExport.cpp").path,
-            assimpPath("/contrib/openddlparser/code/DDLNode.cpp").path,
-            assimpPath("/contrib/openddlparser/code/OpenDDLCommon.cpp").path,
-            assimpPath("/contrib/openddlparser/code/Value.cpp").path,
-            assimpPath("/contrib/openddlparser/code/OpenDDLStream.cpp").path,
+            "contrib/openddlparser/code/OpenDDLParser.cpp",
+            "contrib/openddlparser/code/OpenDDLExport.cpp",
+            "contrib/openddlparser/code/DDLNode.cpp",
+            "contrib/openddlparser/code/OpenDDLCommon.cpp",
+            "contrib/openddlparser/code/Value.cpp",
+            "contrib/openddlparser/code/OpenDDLStream.cpp",
         };
     };
 
     const @"3DS" = [_][]const u8{
-        src_root ++ "/AssetLib/3DS/3DSConverter.cpp",
-        src_root ++ "/AssetLib/3DS/3DSExporter.cpp",
-        src_root ++ "/AssetLib/3DS/3DSLoader.cpp",
+        src_root ++ "AssetLib/3DS/3DSConverter.cpp",
+        src_root ++ "AssetLib/3DS/3DSExporter.cpp",
+        src_root ++ "AssetLib/3DS/3DSLoader.cpp",
     };
     const @"3MF" = [_][]const u8{
-        src_root ++ "/AssetLib/3MF/D3MFExporter.cpp",
-        src_root ++ "/AssetLib/3MF/D3MFImporter.cpp",
-        src_root ++ "/AssetLib/3MF/D3MFOpcPackage.cpp",
-        src_root ++ "/AssetLib/3MF/XmlSerializer.cpp",
+        src_root ++ "AssetLib/3MF/D3MFExporter.cpp",
+        src_root ++ "AssetLib/3MF/D3MFImporter.cpp",
+        src_root ++ "AssetLib/3MF/D3MFOpcPackage.cpp",
+        src_root ++ "AssetLib/3MF/XmlSerializer.cpp",
     };
     const AC = [_][]const u8{
-        src_root ++ "/AssetLib/AC/ACLoader.cpp",
+        src_root ++ "AssetLib/AC/ACLoader.cpp",
     };
     const AMF = [_][]const u8{
-        src_root ++ "/AssetLib/AMF/AMFImporter_Geometry.cpp",
-        src_root ++ "/AssetLib/AMF/AMFImporter_Material.cpp",
-        src_root ++ "/AssetLib/AMF/AMFImporter_Postprocess.cpp",
-        src_root ++ "/AssetLib/AMF/AMFImporter.cpp",
+        src_root ++ "AssetLib/AMF/AMFImporter_Geometry.cpp",
+        src_root ++ "AssetLib/AMF/AMFImporter_Material.cpp",
+        src_root ++ "AssetLib/AMF/AMFImporter_Postprocess.cpp",
+        src_root ++ "AssetLib/AMF/AMFImporter.cpp",
     };
     const ASE = [_][]const u8{
-        src_root ++ "/AssetLib/ASE/ASELoader.cpp",
-        src_root ++ "/AssetLib/ASE/ASEParser.cpp",
+        src_root ++ "AssetLib/ASE/ASELoader.cpp",
+        src_root ++ "AssetLib/ASE/ASEParser.cpp",
     };
     const Assbin = [_][]const u8{
-        src_root ++ "/AssetLib/Assbin/AssbinExporter.cpp",
-        src_root ++ "/AssetLib/Assbin/AssbinFileWriter.cpp",
-        src_root ++ "/AssetLib/Assbin/AssbinLoader.cpp",
+        src_root ++ "AssetLib/Assbin/AssbinExporter.cpp",
+        src_root ++ "AssetLib/Assbin/AssbinFileWriter.cpp",
+        src_root ++ "AssetLib/Assbin/AssbinLoader.cpp",
     };
     const Assjson = [_][]const u8{
-        src_root ++ "/AssetLib/Assjson/cencode.c",
-        src_root ++ "/AssetLib/Assjson/json_exporter.cpp",
-        src_root ++ "/AssetLib/Assjson/mesh_splitter.cpp",
+        src_root ++ "AssetLib/Assjson/cencode.c",
+        src_root ++ "AssetLib/Assjson/json_exporter.cpp",
+        src_root ++ "AssetLib/Assjson/mesh_splitter.cpp",
     };
     const Assxml = [_][]const u8{
-        src_root ++ "/AssetLib/Assxml/AssxmlExporter.cpp",
-        src_root ++ "/AssetLib/Assxml/AssxmlFileWriter.cpp",
+        src_root ++ "AssetLib/Assxml/AssxmlExporter.cpp",
+        src_root ++ "AssetLib/Assxml/AssxmlFileWriter.cpp",
     };
     const B3D = [_][]const u8{
-        src_root ++ "/AssetLib/B3D/B3DImporter.cpp",
+        src_root ++ "AssetLib/B3D/B3DImporter.cpp",
     };
     const Blender = [_][]const u8{
-        src_root ++ "/AssetLib/Blender/BlenderBMesh.cpp",
-        src_root ++ "/AssetLib/Blender/BlenderCustomData.cpp",
-        src_root ++ "/AssetLib/Blender/BlenderDNA.cpp",
-        src_root ++ "/AssetLib/Blender/BlenderLoader.cpp",
-        src_root ++ "/AssetLib/Blender/BlenderModifier.cpp",
-        src_root ++ "/AssetLib/Blender/BlenderScene.cpp",
-        src_root ++ "/AssetLib/Blender/BlenderTessellator.cpp",
+        src_root ++ "AssetLib/Blender/BlenderBMesh.cpp",
+        src_root ++ "AssetLib/Blender/BlenderCustomData.cpp",
+        src_root ++ "AssetLib/Blender/BlenderDNA.cpp",
+        src_root ++ "AssetLib/Blender/BlenderLoader.cpp",
+        src_root ++ "AssetLib/Blender/BlenderModifier.cpp",
+        src_root ++ "AssetLib/Blender/BlenderScene.cpp",
+        src_root ++ "AssetLib/Blender/BlenderTessellator.cpp",
     };
     const BVH = [_][]const u8{
-        src_root ++ "/AssetLib/BVH/BVHLoader.cpp",
+        src_root ++ "AssetLib/BVH/BVHLoader.cpp",
     };
     const C4D = [_][]const u8{
-        src_root ++ "/AssetLib/C4D/C4DImporter.cpp",
+        src_root ++ "AssetLib/C4D/C4DImporter.cpp",
     };
     const COB = [_][]const u8{
-        src_root ++ "/AssetLib/COB/COBLoader.cpp",
+        src_root ++ "AssetLib/COB/COBLoader.cpp",
     };
     const Collada = [_][]const u8{
-        src_root ++ "/AssetLib/Collada/ColladaExporter.cpp",
-        src_root ++ "/AssetLib/Collada/ColladaHelper.cpp",
-        src_root ++ "/AssetLib/Collada/ColladaLoader.cpp",
-        src_root ++ "/AssetLib/Collada/ColladaParser.cpp",
+        src_root ++ "AssetLib/Collada/ColladaExporter.cpp",
+        src_root ++ "AssetLib/Collada/ColladaHelper.cpp",
+        src_root ++ "AssetLib/Collada/ColladaLoader.cpp",
+        src_root ++ "AssetLib/Collada/ColladaParser.cpp",
     };
     const CSM = [_][]const u8{
-        src_root ++ "/AssetLib/CSM/CSMLoader.cpp",
+        src_root ++ "AssetLib/CSM/CSMLoader.cpp",
     };
     const DXF = [_][]const u8{
-        src_root ++ "/AssetLib/DXF/DXFLoader.cpp",
+        src_root ++ "AssetLib/DXF/DXFLoader.cpp",
     };
     const FBX = [_][]const u8{
-        src_root ++ "/AssetLib/FBX/FBXAnimation.cpp",
-        src_root ++ "/AssetLib/FBX/FBXBinaryTokenizer.cpp",
-        src_root ++ "/AssetLib/FBX/FBXConverter.cpp",
-        src_root ++ "/AssetLib/FBX/FBXDeformer.cpp",
-        src_root ++ "/AssetLib/FBX/FBXDocument.cpp",
-        src_root ++ "/AssetLib/FBX/FBXDocumentUtil.cpp",
-        src_root ++ "/AssetLib/FBX/FBXExporter.cpp",
-        src_root ++ "/AssetLib/FBX/FBXExportNode.cpp",
-        src_root ++ "/AssetLib/FBX/FBXExportProperty.cpp",
-        src_root ++ "/AssetLib/FBX/FBXImporter.cpp",
-        src_root ++ "/AssetLib/FBX/FBXMaterial.cpp",
-        src_root ++ "/AssetLib/FBX/FBXMeshGeometry.cpp",
-        src_root ++ "/AssetLib/FBX/FBXModel.cpp",
-        src_root ++ "/AssetLib/FBX/FBXNodeAttribute.cpp",
-        src_root ++ "/AssetLib/FBX/FBXParser.cpp",
-        src_root ++ "/AssetLib/FBX/FBXProperties.cpp",
-        src_root ++ "/AssetLib/FBX/FBXTokenizer.cpp",
-        src_root ++ "/AssetLib/FBX/FBXUtil.cpp",
+        src_root ++ "AssetLib/FBX/FBXAnimation.cpp",
+        src_root ++ "AssetLib/FBX/FBXBinaryTokenizer.cpp",
+        src_root ++ "AssetLib/FBX/FBXConverter.cpp",
+        src_root ++ "AssetLib/FBX/FBXDeformer.cpp",
+        src_root ++ "AssetLib/FBX/FBXDocument.cpp",
+        src_root ++ "AssetLib/FBX/FBXDocumentUtil.cpp",
+        src_root ++ "AssetLib/FBX/FBXExporter.cpp",
+        src_root ++ "AssetLib/FBX/FBXExportNode.cpp",
+        src_root ++ "AssetLib/FBX/FBXExportProperty.cpp",
+        src_root ++ "AssetLib/FBX/FBXImporter.cpp",
+        src_root ++ "AssetLib/FBX/FBXMaterial.cpp",
+        src_root ++ "AssetLib/FBX/FBXMeshGeometry.cpp",
+        src_root ++ "AssetLib/FBX/FBXModel.cpp",
+        src_root ++ "AssetLib/FBX/FBXNodeAttribute.cpp",
+        src_root ++ "AssetLib/FBX/FBXParser.cpp",
+        src_root ++ "AssetLib/FBX/FBXProperties.cpp",
+        src_root ++ "AssetLib/FBX/FBXTokenizer.cpp",
+        src_root ++ "AssetLib/FBX/FBXUtil.cpp",
     };
     const glTF = [_][]const u8{
-        src_root ++ "/AssetLib/glTF/glTFCommon.cpp",
-        src_root ++ "/AssetLib/glTF/glTFExporter.cpp",
-        src_root ++ "/AssetLib/glTF/glTFImporter.cpp",
+        src_root ++ "AssetLib/glTF/glTFCommon.cpp",
+        src_root ++ "AssetLib/glTF/glTFExporter.cpp",
+        src_root ++ "AssetLib/glTF/glTFImporter.cpp",
     };
     const glTF2 = [_][]const u8{
-        src_root ++ "/AssetLib/glTF2/glTF2Exporter.cpp",
-        src_root ++ "/AssetLib/glTF2/glTF2Importer.cpp",
+        src_root ++ "AssetLib/glTF2/glTF2Exporter.cpp",
+        src_root ++ "AssetLib/glTF2/glTF2Importer.cpp",
     };
     const HMP = [_][]const u8{
-        src_root ++ "/AssetLib/HMP/HMPLoader.cpp",
+        src_root ++ "AssetLib/HMP/HMPLoader.cpp",
     };
     const IFC = [_][]const u8{
-        src_root ++ "/AssetLib/IFC/IFCBoolean.cpp",
-        src_root ++ "/AssetLib/IFC/IFCCurve.cpp",
-        src_root ++ "/AssetLib/IFC/IFCGeometry.cpp",
-        src_root ++ "/AssetLib/IFC/IFCLoader.cpp",
-        src_root ++ "/AssetLib/IFC/IFCMaterial.cpp",
-        src_root ++ "/AssetLib/IFC/IFCOpenings.cpp",
-        src_root ++ "/AssetLib/IFC/IFCProfile.cpp",
-        // src_root ++ "/AssetLib/IFC/IFCReaderGen_4.cpp", // not used?
-        src_root ++ "/AssetLib/IFC/IFCReaderGen1_2x3.cpp",
-        src_root ++ "/AssetLib/IFC/IFCReaderGen2_2x3.cpp",
-        src_root ++ "/AssetLib/IFC/IFCUtil.cpp",
+        src_root ++ "AssetLib/IFC/IFCBoolean.cpp",
+        src_root ++ "AssetLib/IFC/IFCCurve.cpp",
+        src_root ++ "AssetLib/IFC/IFCGeometry.cpp",
+        src_root ++ "AssetLib/IFC/IFCLoader.cpp",
+        src_root ++ "AssetLib/IFC/IFCMaterial.cpp",
+        src_root ++ "AssetLib/IFC/IFCOpenings.cpp",
+        src_root ++ "AssetLib/IFC/IFCProfile.cpp",
+        // src_root ++ "AssetLib/IFC/IFCReaderGen_4.cpp", // not used?
+        src_root ++ "AssetLib/IFC/IFCReaderGen1_2x3.cpp",
+        src_root ++ "AssetLib/IFC/IFCReaderGen2_2x3.cpp",
+        src_root ++ "AssetLib/IFC/IFCUtil.cpp",
     };
     const Irr = [_][]const u8{
-        src_root ++ "/AssetLib/Irr/IRRLoader.cpp",
-        src_root ++ "/AssetLib/Irr/IRRMeshLoader.cpp",
-        src_root ++ "/AssetLib/Irr/IRRShared.cpp",
+        src_root ++ "AssetLib/Irr/IRRLoader.cpp",
+        src_root ++ "AssetLib/Irr/IRRMeshLoader.cpp",
+        src_root ++ "AssetLib/Irr/IRRShared.cpp",
     };
     const LWO = [_][]const u8{
-        src_root ++ "/AssetLib/LWO/LWOAnimation.cpp",
-        src_root ++ "/AssetLib/LWO/LWOBLoader.cpp",
-        src_root ++ "/AssetLib/LWO/LWOLoader.cpp",
-        src_root ++ "/AssetLib/LWO/LWOMaterial.cpp",
-        src_root ++ "/AssetLib/LWS/LWSLoader.cpp",
+        src_root ++ "AssetLib/LWO/LWOAnimation.cpp",
+        src_root ++ "AssetLib/LWO/LWOBLoader.cpp",
+        src_root ++ "AssetLib/LWO/LWOLoader.cpp",
+        src_root ++ "AssetLib/LWO/LWOMaterial.cpp",
+        src_root ++ "AssetLib/LWS/LWSLoader.cpp",
     };
     const LWS = [_][]const u8{
-        src_root ++ "/AssetLib/M3D/M3DExporter.cpp",
-        src_root ++ "/AssetLib/M3D/M3DImporter.cpp",
-        src_root ++ "/AssetLib/M3D/M3DWrapper.cpp",
+        src_root ++ "AssetLib/M3D/M3DExporter.cpp",
+        src_root ++ "AssetLib/M3D/M3DImporter.cpp",
+        src_root ++ "AssetLib/M3D/M3DWrapper.cpp",
     };
     const M3D = [_][]const u8{};
     const MD2 = [_][]const u8{
-        src_root ++ "/AssetLib/MD2/MD2Loader.cpp",
+        src_root ++ "AssetLib/MD2/MD2Loader.cpp",
     };
     const MD3 = [_][]const u8{
-        src_root ++ "/AssetLib/MD3/MD3Loader.cpp",
+        src_root ++ "AssetLib/MD3/MD3Loader.cpp",
     };
     const MD5 = [_][]const u8{
-        src_root ++ "/AssetLib/MD5/MD5Loader.cpp",
-        src_root ++ "/AssetLib/MD5/MD5Parser.cpp",
+        src_root ++ "AssetLib/MD5/MD5Loader.cpp",
+        src_root ++ "AssetLib/MD5/MD5Parser.cpp",
     };
     const MDC = [_][]const u8{
-        src_root ++ "/AssetLib/MDC/MDCLoader.cpp",
+        src_root ++ "AssetLib/MDC/MDCLoader.cpp",
     };
     const MDL = [_][]const u8{
-        src_root ++ "/AssetLib/MDL/HalfLife/HL1MDLLoader.cpp",
-        src_root ++ "/AssetLib/MDL/HalfLife/UniqueNameGenerator.cpp",
-        src_root ++ "/AssetLib/MDL/MDLLoader.cpp",
-        src_root ++ "/AssetLib/MDL/MDLMaterialLoader.cpp",
+        src_root ++ "AssetLib/MDL/HalfLife/HL1MDLLoader.cpp",
+        src_root ++ "AssetLib/MDL/HalfLife/UniqueNameGenerator.cpp",
+        src_root ++ "AssetLib/MDL/MDLLoader.cpp",
+        src_root ++ "AssetLib/MDL/MDLMaterialLoader.cpp",
     };
     const MMD = [_][]const u8{
-        src_root ++ "/AssetLib/MMD/MMDImporter.cpp",
-        src_root ++ "/AssetLib/MMD/MMDPmxParser.cpp",
+        src_root ++ "AssetLib/MMD/MMDImporter.cpp",
+        src_root ++ "AssetLib/MMD/MMDPmxParser.cpp",
     };
     const MS3D = [_][]const u8{
-        src_root ++ "/AssetLib/MS3D/MS3DLoader.cpp",
+        src_root ++ "AssetLib/MS3D/MS3DLoader.cpp",
     };
     const NDO = [_][]const u8{
-        src_root ++ "/AssetLib/NDO/NDOLoader.cpp",
+        src_root ++ "AssetLib/NDO/NDOLoader.cpp",
     };
     const NFF = [_][]const u8{
-        src_root ++ "/AssetLib/NFF/NFFLoader.cpp",
+        src_root ++ "AssetLib/NFF/NFFLoader.cpp",
     };
     const Obj = [_][]const u8{
-        src_root ++ "/AssetLib/Obj/ObjExporter.cpp",
-        src_root ++ "/AssetLib/Obj/ObjFileImporter.cpp",
-        src_root ++ "/AssetLib/Obj/ObjFileMtlImporter.cpp",
-        src_root ++ "/AssetLib/Obj/ObjFileParser.cpp",
+        src_root ++ "AssetLib/Obj/ObjExporter.cpp",
+        src_root ++ "AssetLib/Obj/ObjFileImporter.cpp",
+        src_root ++ "AssetLib/Obj/ObjFileMtlImporter.cpp",
+        src_root ++ "AssetLib/Obj/ObjFileParser.cpp",
     };
     const OFF = [_][]const u8{
-        src_root ++ "/AssetLib/OFF/OFFLoader.cpp",
+        src_root ++ "AssetLib/OFF/OFFLoader.cpp",
     };
     const Ogre = [_][]const u8{
-        src_root ++ "/AssetLib/Ogre/OgreBinarySerializer.cpp",
-        src_root ++ "/AssetLib/Ogre/OgreImporter.cpp",
-        src_root ++ "/AssetLib/Ogre/OgreMaterial.cpp",
-        src_root ++ "/AssetLib/Ogre/OgreStructs.cpp",
-        src_root ++ "/AssetLib/Ogre/OgreXmlSerializer.cpp",
+        src_root ++ "AssetLib/Ogre/OgreBinarySerializer.cpp",
+        src_root ++ "AssetLib/Ogre/OgreImporter.cpp",
+        src_root ++ "AssetLib/Ogre/OgreMaterial.cpp",
+        src_root ++ "AssetLib/Ogre/OgreStructs.cpp",
+        src_root ++ "AssetLib/Ogre/OgreXmlSerializer.cpp",
     };
     const OpenGEX = [_][]const u8{
-        src_root ++ "/AssetLib/OpenGEX/OpenGEXExporter.cpp",
-        src_root ++ "/AssetLib/OpenGEX/OpenGEXImporter.cpp",
+        src_root ++ "AssetLib/OpenGEX/OpenGEXExporter.cpp",
+        src_root ++ "AssetLib/OpenGEX/OpenGEXImporter.cpp",
     };
     const Ply = [_][]const u8{
-        src_root ++ "/AssetLib/Ply/PlyExporter.cpp",
-        src_root ++ "/AssetLib/Ply/PlyLoader.cpp",
-        src_root ++ "/AssetLib/Ply/PlyParser.cpp",
+        src_root ++ "AssetLib/Ply/PlyExporter.cpp",
+        src_root ++ "AssetLib/Ply/PlyLoader.cpp",
+        src_root ++ "AssetLib/Ply/PlyParser.cpp",
     };
     const Q3BSP = [_][]const u8{
-        src_root ++ "/AssetLib/Q3BSP/Q3BSPFileImporter.cpp",
-        src_root ++ "/AssetLib/Q3BSP/Q3BSPFileParser.cpp",
+        src_root ++ "AssetLib/Q3BSP/Q3BSPFileImporter.cpp",
+        src_root ++ "AssetLib/Q3BSP/Q3BSPFileParser.cpp",
     };
     const Q3D = [_][]const u8{
-        src_root ++ "/AssetLib/Q3D/Q3DLoader.cpp",
+        src_root ++ "AssetLib/Q3D/Q3DLoader.cpp",
     };
     const Raw = [_][]const u8{
-        src_root ++ "/AssetLib/Raw/RawLoader.cpp",
+        src_root ++ "AssetLib/Raw/RawLoader.cpp",
     };
     const SIB = [_][]const u8{
-        src_root ++ "/AssetLib/SIB/SIBImporter.cpp",
+        src_root ++ "AssetLib/SIB/SIBImporter.cpp",
     };
     const SMD = [_][]const u8{
-        src_root ++ "/AssetLib/SMD/SMDLoader.cpp",
+        src_root ++ "AssetLib/SMD/SMDLoader.cpp",
     };
     const Step = [_][]const u8{
-        src_root ++ "/AssetLib/Step/StepExporter.cpp",
+        src_root ++ "AssetLib/Step/StepExporter.cpp",
     };
     const STEPParser = [_][]const u8{
-        src_root ++ "/AssetLib/STEPParser/STEPFileEncoding.cpp",
-        src_root ++ "/AssetLib/STEPParser/STEPFileReader.cpp",
+        src_root ++ "AssetLib/STEPParser/STEPFileEncoding.cpp",
+        src_root ++ "AssetLib/STEPParser/STEPFileReader.cpp",
     };
     const STL = [_][]const u8{
-        src_root ++ "/AssetLib/STL/STLExporter.cpp",
-        src_root ++ "/AssetLib/STL/STLLoader.cpp",
+        src_root ++ "AssetLib/STL/STLExporter.cpp",
+        src_root ++ "AssetLib/STL/STLLoader.cpp",
     };
     const Terragen = [_][]const u8{
-        src_root ++ "/AssetLib/Terragen/TerragenLoader.cpp",
+        src_root ++ "AssetLib/Terragen/TerragenLoader.cpp",
     };
     const Unreal = [_][]const u8{
-        src_root ++ "/AssetLib/Unreal/UnrealLoader.cpp",
+        src_root ++ "AssetLib/Unreal/UnrealLoader.cpp",
     };
     const X = [_][]const u8{
-        src_root ++ "/AssetLib/X/XFileExporter.cpp",
-        src_root ++ "/AssetLib/X/XFileImporter.cpp",
-        src_root ++ "/AssetLib/X/XFileParser.cpp",
+        src_root ++ "AssetLib/X/XFileExporter.cpp",
+        src_root ++ "AssetLib/X/XFileImporter.cpp",
+        src_root ++ "AssetLib/X/XFileParser.cpp",
     };
     const X3D = [_][]const u8{
-        src_root ++ "/AssetLib/X3D/X3DExporter.cpp",
-        src_root ++ "/AssetLib/X3D/X3DImporter.cpp",
+        src_root ++ "AssetLib/X3D/X3DExporter.cpp",
+        src_root ++ "AssetLib/X3D/X3DImporter.cpp",
     };
     const XGL = [_][]const u8{
-        src_root ++ "/AssetLib/XGL/XGLLoader.cpp",
+        src_root ++ "AssetLib/XGL/XGLLoader.cpp",
     };
 };

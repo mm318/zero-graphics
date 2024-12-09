@@ -24,8 +24,8 @@ pub const FunctionPointer: type = blk: {
     const SpecializedFnPtr = FnPtr(BaseFunc);
     const fnptr_type = @typeInfo(SpecializedFnPtr);
     var generic_type = fnptr_type;
-    std.debug.assert(generic_type.Pointer.size == .One);
-    generic_type.Pointer.child = anyopaque;
+    std.debug.assert(generic_type.pointer.size == .One);
+    generic_type.pointer.child = anyopaque;
     break :blk @Type(generic_type);
 };
 

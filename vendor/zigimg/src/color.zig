@@ -13,7 +13,7 @@ pub inline fn scaleToIntColor(comptime T: type, value: anytype) T {
     const ValueT = @TypeOf(value);
     if (ValueT == comptime_int) return @as(T, value);
     const ValueTypeInfo = @typeInfo(ValueT);
-    if (ValueTypeInfo != .Int or ValueTypeInfo.Int.signedness != .unsigned) {
+    if (ValueTypeInfo != .int or ValueTypeInfo.int.signedness != .unsigned) {
         @compileError("scaleToInColor only accepts unsigned integers as values. Got " ++ @typeName(ValueT) ++ ".");
     }
     const cur_value_bits = @bitSizeOf(ValueT);
@@ -315,7 +315,7 @@ fn RgbMethods(
 fn RgbaMethods(comptime Self: type) type {
     return struct {
         const T = std.meta.fieldInfo(Self, .r).type;
-        const comp_bits = @typeInfo(T).Int.bits;
+        const comp_bits = @typeInfo(T).int.bits;
 
         pub fn initRgba(r: T, g: T, b: T, a: T) Self {
             return Self{

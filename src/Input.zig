@@ -266,8 +266,8 @@ pub const Scancode = enum(u16) {
     app2 = 224,
 };
 
-const EventList = std.TailQueue(Event);
-const EventNode = std.TailQueue(Event).Node;
+const EventList = std.DoublyLinkedList(Event);
+const EventNode = std.DoublyLinkedList(Event).Node;
 
 const ScancodeMap = blk: {
     @setEvalBranchQuota(10_000);

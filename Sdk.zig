@@ -1,16 +1,6 @@
 const std = @import("std");
 const logger = std.log.scoped(.zero_graphics_sdk);
 
-fn sdkPath(comptime suffix: []const u8) std.Build.LazyPath {
-    if (suffix[0] != '/') {
-        @compileError("sdkPath requires an absolute path!");
-    }
-    return comptime blk: {
-        const root_dir = ".";
-        break :blk std.Build.LazyPath{ .path = root_dir ++ suffix };
-    };
-}
-
 const Sdk = @This();
 
 const TemplateStep = @import("vendor/ztt/src/TemplateStep.zig");
@@ -30,14 +20,14 @@ pub fn init(builder: *std.Build, target: std.Build.ResolvedTarget, mode: std.bui
         .install_web_sources = builder.allocator.dupe(
             *std.Build.Step.InstallFile,
             &[_]*std.Build.Step.InstallFile{
-                builder.addInstallFileWithDir(sdkPath("/www/barebones-wasi.js"), web_folder, "barebones-wasi.js"),
-                builder.addInstallFileWithDir(sdkPath("/www/zero-graphics.js"), web_folder, "zero-graphics.js"),
+                builder.addInstallFileWithDir(builder.path("www/barebones-wasi.js"), web_folder, "barebones-wasi.js"),
+                builder.addInstallFileWithDir(builder.path("www/zero-graphics.js"), web_folder, "zero-graphics.js"),
             },
         ) catch @panic("out of memory"),
         .render_main_page_tool = builder.addExecutable(.{
             .name = "render-html-page",
             .target = target,
-            .root_source_file = sdkPath("/tools/render-ztt-page.zig"),
+            .root_source_file = builder.path("tools/render-ztt-page.zig"),
             .optimize = mode,
         }),
         .dummy_server = undefined,
@@ -45,14 +35,14 @@ pub fn init(builder: *std.Build, target: std.Build.ResolvedTarget, mode: std.bui
     };
 
     const html_module = builder.addModule("html", .{
-        .root_source_file = TemplateStep.transformSource(builder, sdkPath("/www/application.ztt")),
+        .root_source_file = TemplateStep.transformSource(builder, builder.path("www/application.ztt")),
     });
     sdk.render_main_page_tool.root_module.addImport("html", html_module);
 
     sdk.dummy_server = builder.addExecutable(.{
         .name = "http-server",
         .target = target,
-        .root_source_file = sdkPath("/tools/http-server.zig"),
+        .root_source_file = builder.path("tools/http-server.zig"),
         .optimize = mode,
     });
     sdk.dummy_server.linkLibC();
@@ -71,29 +61,29 @@ pub fn getLibraryPackage(sdk: *Sdk) *std.Build.Module {
     if (sdk.zero_graphics_pkg == null) {
         const zigimg = std.Build.Module.Import{
             .name = "zigimg",
-            .module = sdk.builder.createModule(.{ .root_source_file = sdkPath("/vendor/zigimg/zigimg.zig") }),
+            .module = sdk.builder.createModule(.{ .root_source_file = sdk.builder.path("vendor/zigimg/zigimg.zig") }),
         };
         const ziglyph = std.Build.Module.Import{
             .name = "ziglyph",
-            .module = sdk.builder.createModule(.{ .root_source_file = sdkPath("/vendor/ziglyph/src/ziglyph.zig") }),
+            .module = sdk.builder.createModule(.{ .root_source_file = sdk.builder.path("vendor/ziglyph/src/ziglyph.zig") }),
         };
         const zigstr = std.Build.Module.Import{
             .name = "zigstr",
             .module = sdk.builder.createModule(.{
-                .root_source_file = sdkPath("/vendor/zigstr/src/Zigstr.zig"),
+                .root_source_file = sdk.builder.path("vendor/zigstr/src/Zigstr.zig"),
                 .imports = &.{ziglyph},
             }),
         };
         const text_editor = std.Build.Module.Import{
             .name = "TextEditor",
             .module = sdk.builder.createModule(.{
-                .root_source_file = sdkPath("/vendor/text-editor/src/TextEditor.zig"),
+                .root_source_file = sdk.builder.path("vendor/text-editor/src/TextEditor.zig"),
                 .imports = &.{ziglyph},
             }),
         };
 
         sdk.zero_graphics_pkg = sdk.builder.createModule(.{
-            .root_source_file = sdkPath("/src/zero-graphics.zig"),
+            .root_source_file = sdk.builder.path("src/zero-graphics.zig"),
             .imports = &[_]std.Build.Module.Import{
                 zigimg,
                 ziglyph,
@@ -103,17 +93,17 @@ pub fn getLibraryPackage(sdk: *Sdk) *std.Build.Module {
         });
         // TTF rendering library:
         sdk.zero_graphics_pkg.?.addCSourceFile(.{
-            .file = sdkPath("/src/rendering/stb_truetype.c"),
+            .file = sdk.builder.path("src/rendering/stb_truetype.c"),
             .flags = &[_][]const u8{"-std=c99"},
         });
-        sdk.zero_graphics_pkg.?.addIncludePath(sdkPath("/vendor/stb/"));
+        sdk.zero_graphics_pkg.?.addIncludePath(sdk.builder.path("vendor/stb/"));
     }
 
     return sdk.zero_graphics_pkg.?;
 }
 
 pub fn createApplication(sdk: *Sdk, name: []const u8, root_file: []const u8) *Application {
-    return createApplicationSource(sdk, name, .{ .path = root_file });
+    return createApplicationSource(sdk, name, sdk.builder.path(root_file));
 }
 
 pub fn createApplicationSource(sdk: *Sdk, name: []const u8, root_file: std.Build.LazyPath) *Application {
@@ -133,7 +123,7 @@ pub fn createApplicationSource(sdk: *Sdk, name: []const u8, root_file: std.Build
         .meta_pkg = std.Build.Module.Import{
             .name = "application-meta",
             .module = sdk.builder.createModule(.{
-                .root_source_file = std.Build.LazyPath{ .generated = &create_meta_step.outfile },
+                .root_source_file = create_meta_step.getOutput(),
             }),
         },
     };
@@ -205,7 +195,6 @@ pub const Application = struct {
     }
 
     fn prepareExe(app: *Application, exe: *std.Build.Step.Compile, app_pkg: std.Build.Module.Import, features: Features) void {
-        // exe.main_pkg_path = sdkPath("/src");
         app.framework_pkg.module.addImport(app_pkg.name, app_pkg.module);
 
         exe.root_module.addImport(app_pkg.name, app_pkg.module);
@@ -213,16 +202,14 @@ pub const Application = struct {
         exe.root_module.addImport(app.meta_pkg.name, app.meta_pkg.module);
 
         if (features.code_editor) {
-            // exe.addIncludePath(sdkPath("/src/scintilla/"));
-
             const scintilla_header = app.sdk.builder.addTranslateC(.{
-                .root_source_file = sdkPath("/src/scintilla/code_editor.h"),
+                .root_source_file = app.sdk.builder.path("src/scintilla/code_editor.h"),
                 .target = exe.root_module.resolved_target.?,
                 .optimize = exe.root_module.optimize.?,
             });
 
             exe.root_module.addImport("scintilla", app.sdk.builder.createModule(.{
-                .root_source_file = .{ .generated = &scintilla_header.output_file },
+                .root_source_file = scintilla_header.getOutput(),
             }));
             exe.step.dependOn(&scintilla_header.step);
 
@@ -283,18 +270,14 @@ pub const Application = struct {
             break :blk list.toOwnedSlice() catch unreachable;
         });
 
-        // var options_file: ?*std.Build.Step.WriteFile.File = null;
-        const options_file: ?*std.Build.Step.WriteFile.File = for (options.files.items) |file| {
-            if (std.mem.eql(u8, "target-config.zig", file.sub_path)) {
-                break file;
-            }
-        } else null;
-        const build_options = app.sdk.builder.createModule(.{ .root_source_file = options_file.?.getPath() });
+        const build_options = app.sdk.builder.createModule(.{ .root_source_file = .{
+            .generated = .{ .file = &options.generated_directory, .sub_path = "target-config.zig" },
+        } });
 
         const exe = app.sdk.builder.addExecutable(.{
             .name = app.name,
             .target = target,
-            .root_source_file = sdkPath("/src/main/wasm.zig"),
+            .root_source_file = app.sdk.builder.path("src/main/wasm.zig"),
             .optimize = mode,
         });
         exe.entry = .disabled;
@@ -373,7 +356,7 @@ pub const AppCompilation = struct {
                 const serve = comp.sdk.builder.addRunArtifact(comp.sdk.dummy_server);
                 serve.addArg(comp.app.name);
                 serve.step.dependOn(comp.install_step orelse @panic("App not installed before running"));
-                serve.cwd = .{ .path = comp.sdk.builder.getInstallPath(web_folder, "") };
+                serve.cwd = .{ .cwd_relative = comp.sdk.builder.getInstallPath(web_folder, "") };
                 break :blk serve;
             },
         };
@@ -401,8 +384,7 @@ const CreateAppMetaStep = struct {
         return ms;
     }
 
-    fn make(step: *std.Build.Step, prog_node: *std.Progress.Node) anyerror!void {
-        _ = prog_node;
+    fn make(step: *std.Build.Step, _: std.Build.Step.MakeOptions) anyerror!void {
         const self: *CreateAppMetaStep = @fieldParentPtr("step", step);
 
         var cache = CacheBuilder.init(self.app.sdk.builder, "zero-graphics");
@@ -432,6 +414,10 @@ const CreateAppMetaStep = struct {
         cache.addBytes(file_data.items);
 
         self.outfile.path = try cache.createSingleFile("app-meta.zig", file_data.items);
+    }
+
+    pub fn getOutput(create_step: *CreateAppMetaStep) std.Build.LazyPath {
+        return .{ .generated = .{ .file = &create_step.outfile } };
     }
 };
 
@@ -538,7 +524,7 @@ const CacheBuilder = struct {
         var dp = try self.createAndGetDir();
         defer dp.dir.close();
 
-        try dp.dir.writeFile(name, data);
+        try dp.dir.writeFile(.{ .sub_path = name, .data = data });
 
         return try std.fs.path.join(self.builder.allocator, &[_][]const u8{
             dp.path,
@@ -554,9 +540,9 @@ fn createScintilla(b: *std.Build, target: std.Build.ResolvedTarget, mode: std.bu
         .optimize = mode,
     });
     lib.addCSourceFiles(.{ .files = &scintilla_sources, .flags = &scintilla_flags });
-    lib.addIncludePath(sdkPath("/vendor/scintilla/include"));
-    lib.addIncludePath(sdkPath("/vendor/scintilla/lexlib"));
-    lib.addIncludePath(sdkPath("/vendor/scintilla/src"));
+    lib.addIncludePath(b.path("vendor/scintilla/include"));
+    lib.addIncludePath(b.path("vendor/scintilla/lexlib"));
+    lib.addIncludePath(b.path("vendor/scintilla/src"));
     lib.defineCMacro("SCI_LEXER", null);
     lib.defineCMacro("GTK", null);
     lib.defineCMacro("SCI_NAMESPACE", null);
@@ -564,7 +550,7 @@ fn createScintilla(b: *std.Build, target: std.Build.ResolvedTarget, mode: std.bu
     lib.linkLibCpp();
     // TODO: This is not clean, fix it!
     lib.addCSourceFile(.{
-        .file = sdkPath("/src/scintilla/code_editor.cpp"),
+        .file = b.path("src/scintilla/code_editor.cpp"),
         .flags = &[_][]const u8{
             "-std=c++17",
             "-Wall",
@@ -581,43 +567,43 @@ const scintilla_flags = [_][]const u8{
 };
 
 const scintilla_sources = [_][]const u8{
-    sdkPath("/vendor/scintilla/lexers/LexCPP.cxx").path,
-    sdkPath("/vendor/scintilla/lexers/LexOthers.cxx").path,
-    sdkPath("/vendor/scintilla/lexlib/Accessor.cxx").path,
-    sdkPath("/vendor/scintilla/lexlib/CharacterCategory.cxx").path,
-    sdkPath("/vendor/scintilla/lexlib/CharacterSet.cxx").path,
-    sdkPath("/vendor/scintilla/lexlib/LexerBase.cxx").path,
-    sdkPath("/vendor/scintilla/lexlib/LexerModule.cxx").path,
-    sdkPath("/vendor/scintilla/lexlib/LexerNoExceptions.cxx").path,
-    sdkPath("/vendor/scintilla/lexlib/LexerSimple.cxx").path,
-    sdkPath("/vendor/scintilla/lexlib/PropSetSimple.cxx").path,
-    sdkPath("/vendor/scintilla/lexlib/StyleContext.cxx").path,
-    sdkPath("/vendor/scintilla/lexlib/WordList.cxx").path,
-    sdkPath("/vendor/scintilla/src/AutoComplete.cxx").path,
-    sdkPath("/vendor/scintilla/src/CallTip.cxx").path,
-    sdkPath("/vendor/scintilla/src/CaseConvert.cxx").path,
-    sdkPath("/vendor/scintilla/src/CaseFolder.cxx").path,
-    sdkPath("/vendor/scintilla/src/Catalogue.cxx").path,
-    sdkPath("/vendor/scintilla/src/CellBuffer.cxx").path,
-    sdkPath("/vendor/scintilla/src/CharClassify.cxx").path,
-    sdkPath("/vendor/scintilla/src/ContractionState.cxx").path,
-    sdkPath("/vendor/scintilla/src/Decoration.cxx").path,
-    sdkPath("/vendor/scintilla/src/Document.cxx").path,
-    sdkPath("/vendor/scintilla/src/EditModel.cxx").path,
-    sdkPath("/vendor/scintilla/src/Editor.cxx").path,
-    sdkPath("/vendor/scintilla/src/EditView.cxx").path,
-    sdkPath("/vendor/scintilla/src/ExternalLexer.cxx").path,
-    sdkPath("/vendor/scintilla/src/Indicator.cxx").path,
-    sdkPath("/vendor/scintilla/src/KeyMap.cxx").path,
-    sdkPath("/vendor/scintilla/src/LineMarker.cxx").path,
-    sdkPath("/vendor/scintilla/src/MarginView.cxx").path,
-    sdkPath("/vendor/scintilla/src/PerLine.cxx").path,
-    sdkPath("/vendor/scintilla/src/PositionCache.cxx").path,
-    sdkPath("/vendor/scintilla/src/RESearch.cxx").path,
-    sdkPath("/vendor/scintilla/src/RunStyles.cxx").path,
-    sdkPath("/vendor/scintilla/src/Selection.cxx").path,
-    sdkPath("/vendor/scintilla/src/Style.cxx").path,
-    sdkPath("/vendor/scintilla/src/UniConversion.cxx").path,
-    sdkPath("/vendor/scintilla/src/ViewStyle.cxx").path,
-    sdkPath("/vendor/scintilla/src/XPM.cxx").path,
+    "vendor/scintilla/lexers/LexCPP.cxx",
+    "vendor/scintilla/lexers/LexOthers.cxx",
+    "vendor/scintilla/lexlib/Accessor.cxx",
+    "vendor/scintilla/lexlib/CharacterCategory.cxx",
+    "vendor/scintilla/lexlib/CharacterSet.cxx",
+    "vendor/scintilla/lexlib/LexerBase.cxx",
+    "vendor/scintilla/lexlib/LexerModule.cxx",
+    "vendor/scintilla/lexlib/LexerNoExceptions.cxx",
+    "vendor/scintilla/lexlib/LexerSimple.cxx",
+    "vendor/scintilla/lexlib/PropSetSimple.cxx",
+    "vendor/scintilla/lexlib/StyleContext.cxx",
+    "vendor/scintilla/lexlib/WordList.cxx",
+    "vendor/scintilla/src/AutoComplete.cxx",
+    "vendor/scintilla/src/CallTip.cxx",
+    "vendor/scintilla/src/CaseConvert.cxx",
+    "vendor/scintilla/src/CaseFolder.cxx",
+    "vendor/scintilla/src/Catalogue.cxx",
+    "vendor/scintilla/src/CellBuffer.cxx",
+    "vendor/scintilla/src/CharClassify.cxx",
+    "vendor/scintilla/src/ContractionState.cxx",
+    "vendor/scintilla/src/Decoration.cxx",
+    "vendor/scintilla/src/Document.cxx",
+    "vendor/scintilla/src/EditModel.cxx",
+    "vendor/scintilla/src/Editor.cxx",
+    "vendor/scintilla/src/EditView.cxx",
+    "vendor/scintilla/src/ExternalLexer.cxx",
+    "vendor/scintilla/src/Indicator.cxx",
+    "vendor/scintilla/src/KeyMap.cxx",
+    "vendor/scintilla/src/LineMarker.cxx",
+    "vendor/scintilla/src/MarginView.cxx",
+    "vendor/scintilla/src/PerLine.cxx",
+    "vendor/scintilla/src/PositionCache.cxx",
+    "vendor/scintilla/src/RESearch.cxx",
+    "vendor/scintilla/src/RunStyles.cxx",
+    "vendor/scintilla/src/Selection.cxx",
+    "vendor/scintilla/src/Style.cxx",
+    "vendor/scintilla/src/UniConversion.cxx",
+    "vendor/scintilla/src/ViewStyle.cxx",
+    "vendor/scintilla/src/XPM.cxx",
 };

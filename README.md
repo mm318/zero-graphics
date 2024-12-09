@@ -143,6 +143,12 @@ Includes a teeny tiny web server for debugging.
 
 Now visit http://127.0.0.1:8000/demo_application.htm to see the demo.
 
+Build for release with:
+
+```sh-session
+[user@computer zero-graphics]$ zig build -Doptimize=ReleaseSafe build-wasm
+```
+
 ## Documentation
 
 ### Getting started

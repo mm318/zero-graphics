@@ -21,7 +21,7 @@ pub const Gizmo = struct {
     };
 };
 
-const Queue = std.TailQueue(Gizmo);
+const Queue = std.DoublyLinkedList(Gizmo);
 const Node = Queue.Node;
 
 node_arena: std.heap.ArenaAllocator,
@@ -88,12 +88,8 @@ const GetGizmoResult = struct {
 fn makeTagValue(value: anytype) usize {
     const T = @TypeOf(value);
     return switch (@typeInfo(T)) {
-        .Pointer => @intFromPtr(value),
-        .Int => |int| if (int.signedness == .signed)
-            @as(usize, @bitCast(@as(isize, value)))
-        else
-            @as(usize, value),
-
+        .pointer => @intFromPtr(value),
+        .int => |int| if (int.signedness == .signed) @as(usize, @bitCast(@as(isize, value))) else @as(usize, value),
         else => @compileError(@typeName(T) ++ " is not a possible tag type"),
     };
 }

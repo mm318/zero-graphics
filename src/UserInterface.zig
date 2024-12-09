@@ -58,6 +58,7 @@ pub const TextBoxTheme = struct {
 
 pub const Theme = struct {
     fn rgb(comptime str: *const [6]u8) Color {
+        @setEvalBranchQuota(3000);
         return Color{
             .r = std.fmt.parseInt(u8, str[0..2], 16) catch unreachable,
             .g = std.fmt.parseInt(u8, str[2..4], 16) catch unreachable,
@@ -447,8 +448,8 @@ const Widget = struct {
 
 const ControlType = std.meta.Tag(Widget.Control);
 
-const WidgetList = std.TailQueue(Widget);
-const WidgetNode = std.TailQueue(Widget).Node;
+const WidgetList = std.DoublyLinkedList(Widget);
+const WidgetNode = std.DoublyLinkedList(Widget).Node;
 
 const UserInterface = @This();
 

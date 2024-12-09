@@ -74,7 +74,7 @@ pub fn getDisplayDPI() f32 {
 
 pub fn logFn(
     comptime message_level: std.log.Level,
-    comptime scope: @Type(.EnumLiteral),
+    comptime scope: @Type(.enum_literal),
     comptime format: []const u8,
     args: anytype,
 ) void {
@@ -683,7 +683,7 @@ pub const WebSocket = struct {
         @"error",
     };
 
-    const Queue = std.TailQueue(Event);
+    const Queue = std.DoublyLinkedList(Event);
     const Node = Queue.Node;
 
     const Data = struct {

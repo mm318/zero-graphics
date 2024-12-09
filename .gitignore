@@ -1,8 +1,8 @@
-zig-cache/
-zig-out/
-*.tga
-.build_config/
-hackzig/
 .vscode/
+.zig-cache/
+zig-out/
+.build_config/
+*.tga
+hackzig/
 *.ll
 *.idsig

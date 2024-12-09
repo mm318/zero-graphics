@@ -9,8 +9,8 @@ pub fn ResourcePool(comptime Resource: type, comptime Context: type, comptime de
             resource: Resource,
         };
 
-        const List = std.TailQueue(Item);
-        const Node = std.TailQueue(Item).Node;
+        const List = std.DoublyLinkedList(Item);
+        const Node = std.DoublyLinkedList(Item).Node;
 
         arena: std.heap.ArenaAllocator,
         list: List,

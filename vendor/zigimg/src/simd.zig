@@ -13,16 +13,16 @@ pub fn load(bytes: []const u8, comptime T: type, comptime len: u32) T {
 
 fn vectorLength(comptime VectorType: type) comptime_int {
     return switch (@typeInfo(VectorType)) {
-        .Vector => |info| info.len,
-        .Array => |info| info.len,
+        .vector => |info| info.len,
+        .array => |info| info.len,
         else => @compileError("Invalid type " ++ @typeName(VectorType)),
     };
 }
 
 fn vectorInnerType(comptime VectorType: type) type {
     return switch (@typeInfo(VectorType)) {
-        .Vector => |info| info.child,
-        .Array => |info| info.child,
+        .vector => |info| info.child,
+        .array => |info| info.child,
         else => @compileError("Invalid type " ++ @typeName(VectorType)),
     };
 }
